@@ -30,7 +30,7 @@ system("bundle", "install")
 
 `chmod 755 start.sh`
 `ruby server.rb >/dev/null 2>&1 &`
-puts "————————————————————————————————————————————————————"
+puts "----------------------------------------------------"
 puts "Lade started! Visit http://localhost:3333/ on your browser."
 puts "Type './start.sh' or 'ruby server.rb&' in Terminal to start Lade next time!"
 `sleep 3 && open "http://localhost:3333/"`
