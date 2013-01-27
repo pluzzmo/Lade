@@ -7,7 +7,8 @@ Lade downloads your favorite shows, anime, etc. automatically.<br>Just set it up
 
 #####Requirements
 1. OS X or Linux
-1. wget (`brew install wget` / `sudo apt-get install wget`)
+2. wget (`brew install wget` / `sudo apt-get install wget`)
+3. unrar (`brew install unrar` / `sudo apt-get install unrar`)
 
 Lade will get the rest automatically.
 
