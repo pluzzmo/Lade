@@ -1,0 +1,119 @@
+!!!
+%html
+	%head
+		%title= @downloads.count>0 ? @downloads.count.to_s+" download"+(@downloads.count==1 ? "" : "s" )+" @ "+@global_speed : "Lade"
+		%link{:rel => "stylesheet", :type => "text/css", :href => "/css/main.css"}
+		
+		%script{:type => "text/javascript",
+				:src => "/js/jquery-1.8.1.min.js"}
+		:javascript
+			unrar_log_opened = false;
+			tooltip_x = null;
+			tooltip_y = null;
+			timeout_id = null;
+			
+			function toggle_alter_buttons() {
+				if ($("body").hasClass("alter"))
+					$("body").removeClass("alter");
+				else
+					$("body").addClass("alter");
+			}
+			
+			function keep_tooltip(x) {
+				clearTimeout(timeout_id);
+				$("body").addClass(x.attr("id")+"-visible");
+			}
+			
+			function show_tooltip(x) {
+				classes = x.attr("class").split(" ");
+				the_class = classes[0];
+				if (the_class == "icon")
+					the_class = classes[1];
+					
+				$("body").addClass(the_class+"-visible");
+			}
+			
+			function hide_tooltip() {
+				classes = $("body").attr("class").split(" ");
+				
+				for (i=0; i<classes.length; i++)
+				{
+					if (classes[i].indexOf("-visible") > -1)
+					{
+						timeout_id = setTimeout('$("body").removeClass(classes[i])', 150);
+					}
+				}
+			}
+			
+			function position_tooltip(x) {
+				if (!tooltip_x && !tooltip_y && !x)
+					return;
+				
+				if (x)
+				{
+					tooltip_y = x.offset().top + x.outerHeight() + 36;
+					tooltip_x = x.offset().left + (x.outerWidth()/2) - 353;
+				}
+				
+				$(".tooltip").css({top: tooltip_y, left: tooltip_x});
+			}
+			
+			function get_update() {
+				if (!unrar_log_opened)
+				{
+					$("body").load("/?t="+(new Date().getTime()), "", function() {
+						if ($("#hidden-page-title").html())
+							document.title = $("#hidden-page-title").html();
+						position_tooltip(null);
+							
+						setTimeout("get_update()", 1500);
+					});
+				}
+				else
+				{
+					setTimeout("get_update()", 1500);
+				}
+			}
+
+			function open_unrar_log() {
+				unrar_log_opened = true;
+				$('#unrar-errors').show();
+				$('#unrar-errors-container').show();
+				$('#unrar-errors-background').click(function() {
+					if (unrar_log_opened)
+						close_unrar_log();
+				});
+			}
+
+			function close_unrar_log() {
+				unrar_log_opened = false;
+				$('#unrar-errors').hide();
+				$('#unrar-errors-container').hide();
+			}
+			
+			$(document).ready(function() {
+				get_update();
+				
+				$(document).on("mouseenter", ".icon", function(e) {
+					position_tooltip($(this));
+					show_tooltip($(this));
+				});
+				
+				$(document).on("mouseleave", ".icon", function(e) {
+					hide_tooltip();
+				});
+				
+				$(document).on("mouseenter", ".tooltip", function(e) {
+					keep_tooltip($(this));
+				});
+				
+				$(document).on("mouseleave", ".tooltip", function(e) {
+					hide_tooltip();
+				})
+			});
+			
+			$(document).keyup(function(e){
+				if (e.keyCode === 27 && unrar_log_opened)
+					close_unrar_log();
+			});
+	%body

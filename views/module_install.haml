@@ -1,0 +1,40 @@
+!!!
+%html
+	%head
+		%title Lade
+		%link{:rel => "stylesheet", :type => "text/css", :href => "/css/main.css"}
+	%body
+		%ul#links
+			%li
+				%a{:href => "/"}home
+			%li
+				%a.current{:href => "/settings"}settings
+			%li
+				%a{:href => "/ondemand"}on demand
+				
+		%h1._600px install modules
+		
+		#module-installer._600px
+			%h3{:style => "text-align: left"} available modules
+			- if !@result.nil?
+				%p#module-install-result{:class => (@result ? 'success' : 'failure')}= @result ? "Module installed successfully." : "Module could not be installed. Check logs for details."
+			- if @modules
+				%ul#available-modules-list
+					- @modules.each do |name, desc, file, installed|
+						%li
+							.module-name
+								=name
+								- if installed
+									.already-installed (already installed)
+								- else
+									%a.button-link.thin{:style => "float: right", :href => "install/"+file} Install
+							.module-description=desc
+			- else
+				%p none
+			
+			#or or
+			.form-el{:style => "border: none; margin-top: 50px"}
+				Install by URL
+				%div{:style => "display: inline-block; width: 400px;"}
+					%input#install-url.extra-wide-text-input{:type => "text", :placeholder => "http://example.com/module.rb", :style => "float: none;"}
+					%a.button-link{:style => "margin: 5px 0 0 0;", :onclick => "location.href = '/install/'+document.getElementById('install-url').value;"} Install

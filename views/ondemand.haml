@@ -1,0 +1,24 @@
+!!!
+%html
+	%head
+		%title Lade
+		%link{:rel => "stylesheet", :type => "text/css", :href => "/css/main.css"}
+	%body
+		%ul#links
+			%li
+				%a{:href => "/"}home
+			%li
+				%a{:href => "/settings"}settings
+			%li
+				%a.current{:href => "/ondemand"}on demand
+		
+		._500px
+			%h1 on demand
+			%p#module-links Select one of your installed modules to see the items available for download:
+			- if @modules
+				%ul#module-links
+					- @modules.each do |module_name, has_on_demand|
+						%li
+							%a.button-link{:href => has_on_demand ? "/ondemand/#{module_name}" : nil, :class => has_on_demand ? "" : "disabled"}= module_name.capitalize
+			- else
+				%p No modules installed.

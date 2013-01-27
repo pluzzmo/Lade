@@ -1,0 +1,25 @@
+!!!
+%html
+	%head
+		%title Lade
+		%link{:rel => "stylesheet", :type => "text/css", :href => "/css/main.css"}
+	%body
+		%ul#links
+			%li
+				%a{:href => "/"}home
+			%li
+				%a{:href => "/settings"}settings
+			%li
+				%a.current{:href => "/ondemand"}on demand
+				
+		._600px
+			%h1 on demand for #{@module}
+			%p#ondemand-hint Click any file/release to start download
+			%p#ondemand-notice
+				- if @success
+					Download started successfully.
+			- if @list
+				%ul#ondemand-list
+					- @list.each do |item|
+						%li
+							%a{:href => "/ondemand/"+@module+"/"+item[1]}= item[0]

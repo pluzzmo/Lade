@@ -1,0 +1,89 @@
+#hidden-page-title= @page_title
+%ul#links
+	%li
+		%a.current{:href => "/"}home
+	%li
+		%a{:href => "/settings"}settings
+	%li
+		%a{:href => "/ondemand"}on demand
+		
+%form#mainswitchform{:name => "form"}
+	#enabledSwitch.switch
+		#mainswitch.colored{:title => "Click to enable/disable. Lade won't check for new releases when disabled.", :class => @config["enabled"] ? "switchon" : "switchoff", :onclick => "location.href = '/toggle'"}
+.clear
+
+- if !@torrent_history.empty?
+	#torrent-history.tooltip
+		%p
+			Torrents downloaded in the past 24 hours
+			%a.clear-torrent-history{:href => "/clear_torrent_history"} Clear
+		%ul
+			- @torrent_history.each do |torrent_name, torrent_time|
+				%li
+					.torrent-name=torrent_name
+					.torrent-time=torrent_time
+
+._600px
+	- if !@broken_modules.empty?
+		#broken-modules
+			%p The following modules were reported as <b>not working</b> and will be fixed as soon as possible
+			%ul
+				- @broken_modules.each do |broken_module|
+					%li="- #{broken_module}"
+	
+	- if @installed_modules.empty?
+		#no-modules
+			%p It doesn't look like you have any modules installed.
+			%a#no-modules-button.button-link{:href => "/install"} Install new modules !
+	
+	%h1
+		=@header
+		- if !@torrent_history.empty?
+			#magnet-icon.torrent-history.icon
+	%ul
+		- @downloads.each do |download|
+			.download
+				%p
+					%span.filename #{download[:file]}
+					%span.close
+						%a{:href => "/remove/"+download[:pid]} x
+					%span.info #{download[:speed]}B/s
+				
+				.progress_bar
+					.eta #{download[:eta]}
+					.fill{:style => "width: #{download[:progress].to_f>0?download[:progress].to_f-0.3:0}%" } #{download[:progress]}
+	
+	- if @downloads.count > 0
+		#buttons
+			%input.alter-button{:type => "button", :value => "✎ Alter", :onclick => "toggle_alter_buttons();"}
+			%input.remove-all{:type => "button", :value => "Remove all", :onclick => "location.href = 'removeall';"}
+
+.clear
+
+
+- if @downloaded.count > 0
+	._600px
+		%h3 downloaded
+		- if @extracting
+			#extracting
+				#extracting-txt=@extracting_txt
+				#extracting-fill{:style => "width: #{@extracting_progress.to_f}%"}
+		%ul
+			- @downloaded.each do |download|
+				%li.downloaded{:class => "#{download[:class]}"}
+					%span.d-filename #{download[:file]}
+					%span.info #{download[:htime]} - #{download[:size]}
+		
+		- if @unrar_errors
+			#unrar-notice
+				%p Lade encountered some errors while trying to extract some files.
+				%input#unrar-inspect.unrar-button{:type => "button", :value => "Inspect", :onclick => "open_unrar_log();"}
+			#unrar-errors-container
+				#unrar-errors-background/
+				#unrar-errors
+					%h2{:style => "width: 100%; margin: 0"} Extraction errors
+					%p=(@unrar_errors.empty? ? "-- empty --" : @unrar_errors)
+					%input#unrar-close.unrar-button{:type => "button", :value => "Close", :onclick => "close_unrar_log();"}
+					%input#unrar-delete.unrar-button{:type => "button", :value => "Delete Log", :onclick => "close_unrar_log(); location.href = '/delete_log'"}
+					%input#unrar-delete.unrar-button{:type => "button", :value => "Delete Log & Files", :onclick => "close_unrar_log(); location.href = '/delete_log_and_files'"}
+					.clear

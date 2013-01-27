@@ -1,0 +1,92 @@
+!!!
+%html
+	%head
+		%title Lade
+		%link{:rel => "stylesheet", :type => "text/css", :href => "/css/main.css"}
+		%script{:type => "text/javascript",
+				:src => "/js/jquery-1.8.1.min.js"}
+		:javascript
+			$(document).ready(function() {			
+				$(".switch div").click(function(){
+					if ($(this).hasClass("switchon"))
+					{
+						$(this).removeClass("switchon").addClass("switchoff");
+						$(this).next().val("false");
+					}
+					else
+					{
+						$(this).removeClass("switchoff").addClass("switchon");
+						$(this).next().val("true");
+					}
+				});
+			});
+	%body
+		%ul#links
+			%li
+				%a{:href => "/"}home
+			%li
+				%a.current{:href => "/settings"}settings
+			%li
+				%a{:href => "/ondemand"}on demand
+		
+		._500px
+			%h1 settings
+			%form#settingsform{:name => "form", :method => "POST"}
+				.form-el
+					Checking frequency
+					%input.text-input{:type => "text", :name => "freq", :value => @freq}/
+					.clear
+					.el-description Lade should check for new releases every &lt;freq&gt; minutes. [range: 3-60]
+					.clear
+				.form-el
+					Maximum concurrent downloads
+					%input.text-input{:type => "text", :name => "max_concurrent_downloads", :value => @max_concurrent_downloads}/
+					.clear
+					.el-description Number of releases that can be downloaded at the same time. [0: unlimited]
+					.clear
+				.form-el
+					Extract automatically
+					#extractSwitch.switch
+						.title
+						%div{:class => (@extract ? "switchon" : "switchoff")}
+						%input#extractValue{:type => "hidden", :name => "extract", :value => @extract.to_s}
+					.clear
+					.el-description Should Lade extract finished downloads automatically ?
+					.clear
+					
+				.form-el
+					Automatic updates
+					#updatesSwitch.switch
+						.title
+						%div{:class => (@updates ? "switchon" : "switchoff")}
+						%input#updatesValue{:type => "hidden", :name => "updates", :value => @updates.to_s}
+					.clear
+					.el-description Should Lade update its files automatically ? [recommended]
+					.clear
+				
+				.form-el
+					Torrent auto-add folder
+					%input.wide-text-input{:type => "text", :name => "torrent_autoadd_dir", :placeholder => "/home/user/example/", :value => @torrent_autoadd_dir}/
+					.clear
+					.el-description Your torrent client's auto-add directory so Lade can give it .torrent files.
+					
+				.form-el
+					Torrent downloads folder
+					%input.wide-text-input{:type => "text", :name => "torrent_downloads_dir", :placeholder => "/home/user/example/", :value => @torrent_downloads_dir}/
+					.clear
+					.el-description Your torrent client's downloads directory so Lade can try moving its downloads.
+				
+				.form-el
+					%input#form-save{:type => "submit", :value => "Save"}
+					
+			.clear
+
+
+			%h1
+				module settings
+				#install-new-modules
+					%a.button-link{:href => "install"} install new modules ➡
+			%ul#module-links
+				- @modules.each do |module_name|
+					%li
+						%a.button-link{:href => "/module/#{module_name}"}= module_name.capitalize

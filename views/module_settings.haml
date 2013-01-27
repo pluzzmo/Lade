@@ -1,0 +1,30 @@
+!!!
+%html
+	%head
+		%title Lade
+		%link{:rel => "stylesheet", :type => "text/css", :href => "/css/main.css"}
+		%script{:type => "text/javascript",
+				:src => "/js/jquery-1.8.1.min.js"}
+		:javascript
+			function add(txt) {
+				$("#list-editor").append("\n"+txt);
+			}
+	%body
+		%ul#links
+			%li
+				%a{:href => "/"}home
+			%li
+				%a.current{:href => "/settings"}settings
+			%li
+				%a{:href => "/ondemand"}on demand
+				
+		._500px
+			%h1 settings for #{@module}
+			%form#addform{:name => "form", :method => "POST"}
+				- if @notice
+					#settings-notice= @notice
+				%textarea#list-editor{:name => "list"}=@list
+				- if @success
+					#settings-success Settings saved successfully.
+				%input#form-save{:type => "submit", :value => "Save"}
+			.clear
