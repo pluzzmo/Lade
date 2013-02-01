@@ -317,16 +317,23 @@ li {
 }
 
 .downloaded {
-	padding: 6px 0 0 0;
+	margin: 6px 0 0 0;
 }
 
 .downloaded .info {
 	color: #AAA;
 	font-weight: 400;
+	padding: 1px 0 0 0;
 }
 
 .d-filename {
-	word-break: break-all;
+	display: inline-block;
+	-o-text-overflow: ellipsis;
+	display: inline-block;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	width: 450px;
 }
 
 .andmore {
