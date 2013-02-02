@@ -9,6 +9,9 @@ require 'rufus/scheduler'
 @@debug = false
 port = 3333
 ip = "0.0.0.0"
+require_authentication = false
+@@auth_name = ""
+@@auth_pw = ""
 
 # ---
 
@@ -60,6 +63,12 @@ configure do
 	set :ip => ip
 end
 
+def self.enable_authentication
+	use Rack::Auth::Basic, "Protected Area" do |username, password|
+		username == @@auth_name && password == @@auth_pw
+	end
+end
+enable_authentication if require_authentication
 
 ### Sintra request methods
 
