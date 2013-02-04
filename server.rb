@@ -9,9 +9,6 @@ require 'rufus/scheduler'
 @@debug = false
 port = 3333
 ip = "0.0.0.0"
-require_authentication = false
-@@auth_name = ""
-@@auth_pw = ""
 
 # ---
 
@@ -30,10 +27,17 @@ $stderr.sync = true
 load path+"lade.rb"
 Lade.prep_directories
 
-# get settings/preferences, mainly the frequency to set up the timer
+# get settings/preferences
 settings = FileConfig.getConfig
 @@settings = settings
 freq = settings["freq"] ? "#{settings["freq"]}m" : '5m'
+require_authentication = settings["authentication"].nil? ? false : settings["authentication"]
+if (require_authentication)
+	@@auth_name, @@auth_pw = ListFile.new(path+"config/password").list
+	
+	require_authentication = false if @@auth_name.nil? || @@auth_pw.nil?
+end
+
 
 # set up the timer
 @@scheduler = Rufus::Scheduler.start_new
@@ -45,7 +49,8 @@ def start_scheduler(frequency)
 	@@job = @@scheduler.every frequency, :first_at => Time.now, :mutex => 'script' do
 		|the_job|
 
-		if !FileConfig.getConfig["disable-updates"]
+		settings = FileConfig.getConfig
+		if (settings["enable_updates"].nil? || settings["enable_updates"])
 			load @@path+"updater.rb"
 			Updater.main
 		end
@@ -57,13 +62,16 @@ end
 
 start_scheduler(freq) if !@@debug
 
-# configure the server to use IP/port given
+# configure Sinatra
 configure do
 	set :port => port
 	set :ip => ip
 end
 
 def self.enable_authentication
+	puts "Basic HTTP Authentication enabled. Username is: #{@@auth_name}."
+	puts "If you can't connect, delete 'config/password' and restart the server."
+	
 	use Rack::Auth::Basic, "Protected Area" do |username, password|
 		username == @@auth_name && password == @@auth_pw
 	end
@@ -223,11 +231,13 @@ end
 get '/settings' do
 	settings = FileConfig.getConfig
 	@freq = settings["freq"] || 5
-	@extract = settings["extract"].nil? ? false : settings["extract"]
-	@updates = settings["disable-updates"].nil? ? true : !settings["disable-updates"]
+	@extract = settings["extract"].nil? ? true : settings["extract"]
+	@updates = settings["enable_updates"].nil? ? true : settings["enable_updates"]
 	@max_concurrent_downloads = settings["max_concurrent_downloads"] || 0
 	@torrent_autoadd_dir = settings["torrent_autoadd_dir"] || ""
 	@torrent_downloads_dir = settings["torrent_downloads_dir"] || ""
+	@authentication = settings["authentication"] || false
+	@auth_login, @auth_password = ListFile.new(path+"config/password").list
 	@modules = Lade.available_modules
 
 	haml :settings
@@ -240,10 +250,15 @@ post '/settings' do
 		start_scheduler("#{settings["freq"]}m")
 		settings["max_concurrent_downloads"] = params[:max_concurrent_downloads].to_i
 		settings["extract"] = (params[:extract] == "true" ? true : false)
-		settings["disable-updates"] = (params[:updates] == "true" ? false : true)
+		settings["enable_updates"] = (params[:updates] == "true" ? true : false)
 		settings["torrent_autoadd_dir"] = params[:torrent_autoadd_dir]
 		settings["torrent_downloads_dir"] = params[:torrent_downloads_dir]
-
+		settings["authentication"] = (params[:authentication] == "true" ? true : false)
+		
+		if (!params[:auth_password].nil? && !params[:auth_password].empty? && params[:auth_password] != "********" && !params[:auth_login].nil? && !params[:auth_login].empty?)
+			ListFile.overwrite(path+"config/password", [params[:auth_login], params[:auth_password]])
+		end
+		
 		FileConfig.saveConfig(settings)
 
 		redirect to("/")

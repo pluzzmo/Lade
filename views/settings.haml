@@ -6,7 +6,7 @@
 		%script{:type => "text/javascript",
 				:src => "/js/jquery-1.8.1.min.js"}
 		:javascript
-			$(document).ready(function() {			
+			$(document).ready(function() {
 				$(".switch div").click(function(){
 					if ($(this).hasClass("switchon"))
 					{
@@ -30,8 +30,20 @@
 				%a{:href => "/ondemand"}on demand
 		
 		._500px
-			%h1 settings
+			%h1
+				module settings
+				#install-new-modules
+					%a.button-link{:href => "install"} install new modules ➡
+			%ul#module-links
+				- @modules.each do |module_name|
+					%li
+						%a.button-link{:href => "/module/#{module_name}"}= module_name.capitalize
+			
 			%form#settingsform{:name => "form", :method => "POST"}
+				.clear
+				%h1
+					general settings
+					
 				.form-el
 					Checking frequency
 					%input.text-input{:type => "text", :name => "freq", :value => @freq}/
@@ -64,6 +76,9 @@
 					.el-description Should Lade update its files automatically ? [recommended]
 					.clear
 				
+				%h1
+					torrent settings
+					
 				.form-el
 					Torrent auto-add folder
 					%input.wide-text-input{:type => "text", :name => "torrent_autoadd_dir", :placeholder => "/home/user/example/", :value => @torrent_autoadd_dir}/
@@ -76,17 +91,35 @@
 					.clear
 					.el-description Your torrent client's downloads directory so Lade can try moving its downloads.
 				
+				%h1
+					interface settings
+					
 				.form-el
-					%input#form-save{:type => "submit", :value => "Save"}
+					Require authentication
+					#authenticationSwitch.switch
+						.title
+						%div{:class => (@authentication ? "switchon" : "switchoff")}
+						%input#authenticationValue{:type => "hidden", :name => "authentication", :value => @authentication.to_s}
+					.clear
+					.el-description
+						Require authentication for Lade's web interface ? (Delete 'config/password' if locked out)
+					.clear
+				
+				.form-el
+					Username
+					%input.regular-text-input{:type => "text", :name => "auth_login", :value => @auth_login}/
+					.clear
+					.el-description Username that would be required for the authentication.
+					.clear
+					
+				.form-el
+					Password
+					%input.regular-text-input{:type => "text", :name => "auth_password", :value => @auth_password.nil? ? "" : "********"}/
+					.clear
+					.el-description Password that would be required for the authentication.
+					.clear
+
+				
+				%input#form-save{:type => "submit", :value => "Save"}
 					
 			.clear
-
-
-			%h1
-				module settings
-				#install-new-modules
-					%a.button-link{:href => "install"} install new modules ➡
-			%ul#module-links
-				- @modules.each do |module_name|
-					%li
-						%a.button-link{:href => "/module/#{module_name}"}= module_name.capitalize

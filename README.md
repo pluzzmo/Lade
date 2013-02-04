@@ -1,4 +1,4 @@
-##Lade 1.0
+##Lade 1.0.1
 
 #####Description
 
@@ -20,3 +20,11 @@ Navigate to where you want Lade's folder created, then
 
 #####Uninstall
 `killall ruby`, then delete Lade's folder
+
+#####Changelog
+######1.0.1
+- Removed host BillionUploads.com (implemented captcha…)
+- Added host PutLocker.com
+- Switched module 'Shows' to use PutLocker instead
+- Added HTTP authentication for Lade's server, see settings
+- Some CSS adjustments

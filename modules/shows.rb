@@ -80,9 +80,9 @@ class Shows
 	
 	def self.check_page_for_relevant_links(source, release_names, page_name, fallback)
 		zdoox_links_txt = LinkScanner.scan_for_zdoox_links(source).join("\n")
-		found_links = LinkScanner.scan_for_bu_links(source)
-		found_links += LinkScanner.scan_for_bu_links(zdoox_links_txt)
-		link_groups = BillionUploads.check_urls(found_links)
+		found_links = LinkScanner.scan_for_pl_links(source)
+		found_links += LinkScanner.scan_for_pl_links(zdoox_links_txt)
+		link_groups = PutLocker.check_urls(found_links)
 
 		# skip for now, not all releases have been uploaded yet
 		# if fallback = true (page is older than 1 hour) and not all files have been uploaded, download the one with the most links anyway
@@ -105,7 +105,7 @@ class Shows
 		
 		links = biggest_group[:files].collect {
 			|file|
-			BillionUploads.get_download_link(file)
+			PutLocker.get_download_link(file)
 		}
 		
 		release_name = release_names.collect {
@@ -189,9 +189,9 @@ class Shows
 		source = (open "http://www.myrls.me/tv/shows/#{CGI.escape(reference)}").read.to_s
 		
 		zdoox_links_txt = LinkScanner.scan_for_zdoox_links(source).join("\n")
-		found_links = LinkScanner.scan_for_bu_links(source)
-		found_links += LinkScanner.scan_for_bu_links(zdoox_links_txt)
-		link_groups = BillionUploads.check_urls(found_links)
+		found_links = LinkScanner.scan_for_pl_links(source)
+		found_links += LinkScanner.scan_for_pl_links(zdoox_links_txt)
+		link_groups = PutLocker.check_urls(found_links)
 		
 		result = []
 		link_groups.each {
@@ -216,9 +216,9 @@ class Shows
 		source = (open "http://www.myrls.me/tv/shows/#{CGI.escape(reference.first)}").read.to_s
 		
 		zdoox_links_txt = LinkScanner.scan_for_zdoox_links(source).join("\n")
-		found_links = LinkScanner.scan_for_bu_links(source)
-		found_links += LinkScanner.scan_for_bu_links(zdoox_links_txt)
-		link_groups = BillionUploads.check_urls(found_links)
+		found_links = LinkScanner.scan_for_pl_links(source)
+		found_links += LinkScanner.scan_for_pl_links(zdoox_links_txt)
+		link_groups = PutLocker.check_urls(found_links)
 		
 		# the HD version is the biggest collection of files in terms of filesize
 		wanted_group = nil
@@ -230,7 +230,7 @@ class Shows
 		
 		links = wanted_group[:files].collect {
 			|file|
-			BillionUploads.get_download_link(file)
+			PutLocker.get_download_link(file)
 		}
 		
 		filenames = links.collect {
@@ -256,7 +256,7 @@ class Shows
 	end
 	
 	def self.description
-		"Downloads US & UK TV shows from <a href=\"http://myrls.me\">MyRLS.me</a> via direct links (BillionUploads). Has most airing shows except a few obscure ones."
+		"Downloads US & UK TV shows from <a href=\"http://myrls.me\">MyRLS.me</a> via direct links (PutLocker). Has most airing shows except a few obscure ones."
 	end
 	
 	def self.broken?

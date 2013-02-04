@@ -196,20 +196,37 @@ class Helper
 		number = size.to_f
 		unit = size.to_s.gsub(/[^a-zA-Z]/, "")
 
-		return number if unit.empty?
+		return number.to_i if unit.empty?
 		
 		if (unit.downcase == "k" || unit.downcase == "kb")
-			return number*1024
+			return (number*1024).to_i
 		elsif (unit.downcase == "m" || unit.downcase == "mb")
-			return number*1024*1024
+			return (number*1024*1024).to_i
 		elsif (unit.downcase == "g" || unit.downcase == "gb")
-			return number*1024*1024*1024
+			return (number*1024*1024*1024).to_i
 		else
-			return number
+			return number.to_i
 		end
 	end
 	
 	def self.escape_url(url)
 		CGI.escape(url).gsub(" ", "%20").gsub("+", "%20")
+	end
+	
+	def self.attempt(max_tries)
+		return nil if max_tries < 1
+		
+		tries = 0
+		begin
+			yield
+		rescue StandardError => e
+			tries += 1
+			if (tries < max_tries)
+				retry
+			else
+				puts e.backtrace.first
+				puts e.to_s
+			end
+		end
 	end
 end

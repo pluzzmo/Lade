@@ -248,7 +248,7 @@ body.alter .close {
 	float: right;
 }
 
-.text-input, .wide-text-input, .extra-wide-text-input {
+.text-input, .regular-text-input, .wide-text-input, .extra-wide-text-input {
 	border: 1px solid #CCC;
 	border-radius: 2px;
 	display: inline-block;
@@ -258,10 +258,16 @@ body.alter .close {
 	width: 30px;
 }
 
-.text-input:focus, .wide-text-input:focus, .extra-wide-text-input:focus  {
+.text-input:focus, .regular-text-input:focus, .wide-text-input:focus, .extra-wide-text-input:focus  {
 	outline: none;
 	border-color: #888;
 	box-shadow:0 0 10px #EEE;
+}
+
+.regular-text-input {
+	font-size: 14px;
+	font-weight: 400;
+	width: 200px;
 }
 
 .wide-text-input {
@@ -292,6 +298,7 @@ body.alter .close {
 	font-size: 12px;
 	font-weight: 400;
 	line-height: normal;
+	width: 100%;
 }
 
 #form-save {
@@ -300,11 +307,10 @@ body.alter .close {
 	border-radius: 2px;
 	color: #FFF;
 	cursor: pointer;
-	font-size: 12px;
+	font-size: 16px;
 	font-weight: bold;
-	height: 25px;
 	margin-top: 25px;
-	width: 69px;
+	padding: 8px 30px;
 }
 
 #form-save:hover {
