@@ -514,7 +514,7 @@ end
 
 get '/api/downloads/count' do
 	lines = `ps ax | grep wget`.split "\n"
-	lines = lines.select{|line| line.strip.match(/wget$/).nil? }
+	lines = lines.select{|line| line.strip.match(/wget$/).nil? && !line.strip.include?("(wget")}
 	
 	lines.count.to_s
 end

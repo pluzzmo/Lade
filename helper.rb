@@ -102,15 +102,11 @@ end
 
 class LinkScanner
 	def self.scan_for_rs_links(text)
-		text.scan(/http\:\/\/(?:www\.)?rapidshare\.com\/files\/\d+?\/.*?[\s$\<\"\']/im).uniq.flatten
+		text.scan(/http\:\/\/(?:www\.)?rapidshare\.com\/files\/\d+?\/.*?[\s$\<\"\']/im).flatten.uniq
 	end
-	
-	def self.scan_for_bu_links(text)
-		text.scan(/http\:\/\/(?:www\.)?billionuploads\.com\/[a-z\d]{12}/im).uniq.flatten
-	end
-	
+
 	def self.scan_for_pl_links(text)
-		text.scan(/http\:\/\/(?:www\.)?putlocker\.com\/file\/[a-z\d]{16}/im).uniq.flatten
+		text.scan(/http\:\/\/(?:www\.)?putlocker\.com\/file\/[a-z\d]{16}/im).flatten.uniq
 	end
 	
 	def self.scan_for_zdoox_links(text)
@@ -123,7 +119,7 @@ class LinkScanner
 			found << links
 		}
 		
-		found.compact.flatten.uniq
+		found.flatten.compact.uniq
 	end
 end
 

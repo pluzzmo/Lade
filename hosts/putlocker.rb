@@ -25,8 +25,9 @@ class PutLocker
 			dead = (resp.code.to_i != 200)
 		}
 		
+		id = url.split("/").last
+
 		if (!dead)
-			id = url.split("/").last
 			hash = page.scan(/value\=\"(.*?)\"\sname\=\"hash\"\>/im).flatten[0]
 			filename, size = page.scan(/<h1>(.*?)<strong>\(\s*(.*?)\s*\)<\/strong><\/h1>/im).flatten
 
@@ -36,14 +37,17 @@ class PutLocker
 			end
 		else
 			puts "#{url} - Dead link"
-			return nil
+			hash, filename, noextension = "DEAD"
+			size = "0"
 		end
 
 		{
+			:url => url,
 			:id => id,
 			:hash => hash,
 			:filename => filename,
 			:noextension => noextension,
+			:dead => dead,
 			:size => Helper.to_bytes(size)
 		}
 	end
@@ -53,7 +57,12 @@ class PutLocker
 		grouped_files = []
 		files.each {
 			|file|
-
+			
+			if (file[:dead])
+				grouped_files << {:name => file[:url], :files => [], :dead => true}
+				next
+			end
+			
 			added = false
 
 			grouped_files.each {
@@ -70,6 +79,7 @@ class PutLocker
 			grouped_files << {:name => file[:noextension], :files => [file]}
 		}
 
+		# calculate total size for each group
 		grouped_files.each {
 			|group|
 			group[:size] = 0
@@ -83,7 +93,7 @@ class PutLocker
 	end
 
 	def self.get_download_link(file, last_time = false)
-		return nil if file.nil?
+		return nil if (file.nil? || file[:dead])
 		
 		directlink = nil
 		
@@ -103,11 +113,11 @@ class PutLocker
 			res = http.send_request('GET', almost_directlink, nil, nil)
 			directlink = res["location"]
 		}
-		
+
 		if ((directlink.nil? || directlink.empty?) && !last_time)
 			puts "Trying again from start..."
 			directlink = self.get_download_link(self.check_file(full_url), yes)
-		else ((directlink.nil? || directlink.empty?) && last_time)
+		elsif ((directlink.nil? || directlink.empty?) && last_time)
 			puts "Couldn't get direct link... skipping."
 		end
 		

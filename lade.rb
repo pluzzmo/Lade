@@ -274,7 +274,7 @@ class Lade
       
       # types: 0 = directlink, 10 = for jdownloader
       if (hash[:type] == 0)
-        max = hash[:links].count
+        max = hash[:links].count-1
         for i in 0..max
           self.start_download(hash[:links][i], hash[:filenames][i])
         end

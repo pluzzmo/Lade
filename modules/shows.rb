@@ -115,7 +115,7 @@ class Shows
 		
 		filenames = links.collect {
 			|link|
-			filename = link.split("/").last
+			filename = link.split("=").last
 			filename.gsub(/.*?((\.part\d+)?\.rar)/, "#{release_name}"+'\1')
 		}
 		
@@ -235,7 +235,7 @@ class Shows
 		
 		filenames = links.collect {
 			|link|
-			link.split("/").last
+			link.split("=").last
 		}
 		
 		return [{:type => 0, :links => links, :filenames => filenames, :reference => reference.first}]
