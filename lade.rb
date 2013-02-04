@@ -274,10 +274,10 @@ class Lade
       
       # types: 0 = directlink, 10 = for jdownloader
       if (hash[:type] == 0)
-        max = hash[:links].count-1
-        for i in 0..max
+        hash[:links].each_index {
+          |i|
           self.start_download(hash[:links][i], hash[:filenames][i])
-        end
+        }
       elsif (hash[:type] == 10)
         jd = JDownloader.new(@@jdremote) if jd.nil?
         jd.process(hash[:links], @@downloads_folder_path)
