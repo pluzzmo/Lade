@@ -22,9 +22,20 @@ Navigate to where you want Lade's folder created, then
 `killall ruby`, then delete Lade's folder
 
 #####Changelog
+######1.0.2
+- Fixed module 'Nyaa' which sometimes malfunctioned if it couldn't connect to the website
+- Fixed a case where downloaded torrents weren't moved back to Lade's downloads folder because the torrent history was cleared
+- Added code for starting/restarting/quitting Lade:
+	- `ruby process.rb start` to start
+	- `ruby process.rb restart` to restart
+	- `ruby process.rb stop` to stop/quit
+	- `http://<lade_ip>/stop`, `http://<lade_ip>/restart` can also be used on your web browser
+- Added a basic api method `http://<lade_ip>/api/downloads/count` that does exactly what you expect it to do. (Use *login:password@<lade_ip>* with authentication enabled)
+	
 ######1.0.1
 - Removed host BillionUploads.com (implemented captcha…)
 - Added host PutLocker.com
 - Switched module 'Shows' to use PutLocker instead
 - Added HTTP authentication for Lade's server, see settings
+- Updates & Extraction are now enabled by default
 - Some CSS adjustments

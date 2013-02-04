@@ -229,4 +229,20 @@ class Helper
 			end
 		end
 	end
+	
+	def self.attempt_and_raise(max_tries)
+		return nil if max_tries < 1
+		
+		tries = 0
+		begin
+			yield
+		rescue StandardError => e
+			tries += 1
+			if (tries < max_tries)
+				retry
+			else
+				raise e
+			end
+		end
+	end
 end

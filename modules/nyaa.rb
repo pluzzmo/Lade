@@ -8,17 +8,26 @@ class Nyaa
 	  remaining = max
 		
 		cache_id = 0
-		File.open(@@nyaa_cache_path, "r") do |f|
-			cache_id = f.read.strip.to_i
-		end
-		
-		raise StandardError.new("Nyaa module couldn't get a reference torrent ID and was unable to tell which torrents are new.") if cache_id == 0
+		Helper.attempt_and_raise(2) {
+			File.open(@@nyaa_cache_path, "r") do |f|
+				cache_id = f.read.strip.to_i
+			end
+			
+			if (cache_id < 40000)
+				cache_id = Nyaa.update_cache
+			end
+			
+			raise StandardError.new("Nyaa module couldn't get a valid reference torrent ID and was unable to tell which torrents are new.") if cache_id < 40000
+		}
 		
 		to_download.list.each {
 			|query|
 			
 			puts "Trying search query '#{query}'..."
-			search_result = open(@@base_search_url+CGI.escape(query)).read.to_s
+			search_result = nil
+			Helper.attempt_and_raise(3) {
+				search_result = open(@@base_search_url+CGI.escape(query)).read.to_s
+			}
 			
 			torrent_ids = search_result.scan(/torrentinfo\&#38;tid\=(\d+)\"\>(.*?)\<\//im).uniq.collect {
 	  		|id, name|
@@ -59,16 +68,30 @@ class Nyaa
 	end
 	
 	def self.update_cache
-		page = open("http://www.nyaa.eu/").read.to_s
+		current_highest_id = 0
+		
+		Helper.attempt_and_raise(3) {
+			page = open("http://www.nyaa.eu/").read.to_s
 			
-		current_highest_id = page.scan(/tid\=(\d+)\"/).flatten.uniq.collect {
-			|id|
-			id.to_i
-		}.sort.last
+			current_highest_id = page.scan(/tid\=(\d+)\"/).flatten.uniq.collect {
+				|id|
+				id.to_i
+			}.max
+			
+			if (current_highest_id < 40000)
+				puts "DEBUG: #{page}"
+				raise StandardError.new("Nyaa module couldn't get a reference torrent ID and was unable to tell which torrents are new.")
+			end
+		}
+		
+		result = current_highest_id > 40000 ? current_highest_id.to_s : 40000.to_s
 		
 		File.open(@@nyaa_cache_path, "w") do |f|
-			f.write(current_highest_id.to_s)
+			f.write(result)
+			puts "Nyaa: cache's reference ID set to #{result}"
 		end
+		
+		result
 	end
 	
 	def self.has_on_demand?

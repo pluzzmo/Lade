@@ -216,14 +216,67 @@ class Updater
 		$stdout = orig_stdout
 		$stdout.sync = true
 	end
+	
+	def self.get_pid
+		pid = (ARGV[0] == "stop" ? nil : Process.pid.to_s)
+		if (File.exist?(@@path+"config/pid"))
+			File.open(@@path+"config/pid", "r") do |f|
+				r = f.read.to_s
+				pid = r unless (r.nil? || r.empty?)
+			end
+		else
+			r = `pgrep -f 'ruby #{@@path}server.rb'`
+			pid = r.split("\n")[1] unless (r.nil? || r.empty? || r.lines.count < 2)
+		end
+
+		pid
+	end
+	
+	def self.restart
+		puts "Restarting server..."
+		pid = Updater.get_pid
+		if (pid.nil?)
+			Updater.start
+		else
+			File.delete(@@path+"config/pid") if File.exist?(@@path+"config/pid")
+			IO.popen("kill #{pid} && sleep 3 && ruby #{@@path}server.rb&")
+			puts "Lade restarted."
+		end
+	end
+	
+	def self.start
+		if (File.exist?(@@path+"config/pid"))
+			puts "Lade seems to be already running. Remove the pid file if you're certain that Lade isn't running."
+		else
+			IO.popen("ruby #{@@path}server.rb&")
+			puts "Lade started."
+		end
+	end
+	
+	def self.forcestart
+		IO.popen("ruby #{@@path}server.rb&")
+		puts "Lade started."
+	end
+	
+	def self.quit
+		puts "Stopping server..."
+		pid = Updater.get_pid
+		
+		if (!pid.nil?)
+			File.delete(@@path+"config/pid") if File.exist?(@@path+"config/pid")
+			`kill #{pid}`
+			puts "Lade stopped."
+		else
+			puts "Lade doesn't seem to be running."
+		end
+	end
 
 	def self.main
 		Updater.log do
 			restart = Updater.update
 			
 			if restart
-				puts "Restarting server..."
-				IO.popen("kill #{Process.pid} && ruby #{@@path}server.rb&")
+				Updater.restart
 			end
 		end
 	end

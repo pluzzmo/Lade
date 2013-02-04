@@ -19,7 +19,7 @@ class PutLocker
 	def self.check_file(url)
 		page, dead = nil
 		
-		Helper.attempt(3) {
+		Helper.attempt_and_raise(3) {
 			resp = Net::HTTP.get_response(URI(url))
 			page = resp.body
 			dead = (resp.code.to_i != 200)

@@ -78,6 +78,11 @@ def self.enable_authentication
 end
 enable_authentication if require_authentication
 
+# save PID
+File.open(path+"config/pid", "w") do |f|
+	f.write(Process.pid.to_s)
+end
+
 ### Sintra request methods
 
 get '/' do
@@ -183,16 +188,17 @@ get '/' do
 	torrent_history_path = path+"config/torrent_history"
 	@torrent_history = ListFile.new(torrent_history_path).list
 	@torrent_history.sort! {
-		|x, y|
-		a, b = x.split(":")
-		c, d = y.split(":")
+		|x, y| # sort by timestamp
+		a, b = x.split(":", 2)
+		c, d = y.split(":", 2)
 		d.to_i <=> b.to_i
 	}
 	@torrent_history = @torrent_history.collect {
 		|item|
-		a, b = item.split(":")
-		[a, Helper.relative_time(b)]
-	}
+		torrent, time, ignore = item.split(":", 3)
+		
+		[torrent, Helper.relative_time(time)] if ignore.to_i == 0
+	}.compact
 	
 	if @torrent_history.count > 5
 		more = ["and "+(@torrent_history.count-5).to_s+" more...", ""]
@@ -472,7 +478,13 @@ end
 get '/clear_torrent_history' do
 	begin
 		th_path = path+"config/torrent_history"
-		File.delete(th_path) if File.exist?(th_path)
+		lf = ListFile.new(th_path)
+		lf.list = lf.list.collect {
+			|line|
+			torrent, time, ignore = line.split(":", 3)
+			"#{torrent}:#{time}:1"
+		}
+		lf.save
 	rescue StandardError => e
 		puts e.backtrace.first
 		puts e.to_s
@@ -498,4 +510,29 @@ get '/install/*' do
 	@modules = Updater.available_modules
 	
 	haml :module_install
+end
+
+get '/api/downloads/count' do
+	lines = `ps ax | grep wget`.split "\n"
+	lines = lines.select{|line| line.strip.match(/wget$/).nil? }
+	
+	lines.count.to_s
+end
+
+get '/restart' do
+	@@scheduler.in '2s' do
+		load @@path+"updater.rb"
+		Updater.restart
+	end
+	
+	redirect to("/restart.html")
+end
+
+get '/quit' do
+	@@scheduler.in '2s' do
+		load @@path+"updater.rb"
+		Updater.quit
+	end
+	
+	redirect to("/quit.html")
 end

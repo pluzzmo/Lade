@@ -338,7 +338,7 @@ class Lade
     last_24h_timestamp = Time.now.to_i - (24*3600)
     torrent_history.list = torrent_history.list.select {
       |item|
-      name, time = item.split(":")
+      name, time = item.split(":", 2)
       
       ((time.to_i == 0) || (time.to_i > last_24h_timestamp))
     }
@@ -431,7 +431,7 @@ class Lade
           
           begin
             File.rename(@@downloads_folder_path+torrent, @@torrent_autoadd_dir+torrent)
-            moved << "#{torrent}:#{Time.now.to_i}"
+            moved << "#{torrent}:#{Time.now.to_i}:0"
             puts "'#{torrent}' moved to '#{@@torrent_autoadd_dir}'"
           rescue StandardError => e
             puts "Couldn't move #{torrent}"

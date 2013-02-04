@@ -28,11 +28,11 @@ end
 puts "Checking for dependencies..."
 system("bundle", "install")
 
-`chmod 755 start.sh`
-`ruby server.rb >/dev/null 2>&1 &`
+system("ruby", "process.rb", "start")
+
 puts "----------------------------------------------------"
 puts "Lade started! Visit http://localhost:3333/ on your browser."
-puts "Type './start.sh' or 'ruby server.rb&' in Terminal to start Lade next time!"
-`sleep 3 && open "http://localhost:3333/"`
+puts "Type 'ruby process.rb start' in Terminal to start Lade next time!"
+`sleep 2 && open "http://localhost:3333/"`
 
 File.delete(pwd+"/"+__FILE__)
