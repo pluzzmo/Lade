@@ -16,8 +16,6 @@ class Nyaa
 			if (cache_id < 40000)
 				cache_id = Nyaa.update_cache
 			end
-			
-			raise StandardError.new("Nyaa module couldn't get a valid reference torrent ID and was unable to tell which torrents are new.") if cache_id < 40000
 		}
 		
 		to_download.list.each {
@@ -56,10 +54,6 @@ class Nyaa
 		
 		return result
   end
-  
-  def self.install
-		Nyaa.update_cache
-	end
 	
 	def self.always_run
 		if (!File.exist?(@@nyaa_cache_path))
@@ -95,7 +89,38 @@ class Nyaa
 	end
 	
 	def self.has_on_demand?
-		false
+		true
+	end
+	
+	def self.on_demand
+		page = nil
+		Helper.attempt_and_raise(3) {
+			page = open("http://www.nyaa.eu/").read.to_s
+		}
+		
+		result = page.scan(/torrentinfo\&#38;tid\=(\d+)\"\>(.*?)\<\//im).uniq.collect {
+			|id, name|
+			[name, id]
+		}
+		
+		result
+	end
+	
+	def self.download_on_demand(reference)
+		page = nil
+		Helper.attempt_and_raise(3) {
+			page = open("http://www.nyaa.eu/?page=torrentinfo&tid="+reference).read.to_s
+		}
+		
+		name = page.scan(/class=\"tinfotorrentname\">(.*?)<\/td/im).flatten.first
+		
+		[{
+			:type => 0,
+			:links => ["http://www.nyaa.eu/?page=download&tid="+reference],
+			:filenames => [name+".torrent"],
+			:file => name+".torrent",
+			:reference => reference
+		}]
 	end
 	
 	def self.settings_notice
@@ -112,14 +137,10 @@ class Nyaa
 	end
 
 	def self.description
-		"Searches <a href=\"http://nyaa.eu\">Nyaa.eu</a> using given search terms and downloads the resulting torrents. (mostly Anime)"
+		"Searches <a href=\"http://nyaa.eu\">Nyaa.eu</a> using given search terms and downloads the resulting <b>torrent</b>s. (mostly Anime)"
 	end
 	
 	def self.broken?
 		false
-	end
-	
-	def self.update_url
-		nil
 	end
 end
