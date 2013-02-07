@@ -1,4 +1,4 @@
-##Lade 1.0.1
+##Lade 1.0.3
 
 #####Description
 
@@ -22,6 +22,11 @@ Navigate to where you want Lade's folder created, then
 `killall ruby`, then delete Lade's folder
 
 #####Changelog
+######1.0.3
+- Added 'on demand' for module 'Nyaa'
+- Added a new module 'Eztv' for [eztv.it](eztv.it)
+- Added filtering ability in 'on demand' pages
+
 ######1.0.2
 - Fixed module 'Nyaa' which sometimes malfunctioned if it couldn't connect to the website
 - Fixed a case where downloaded torrents weren't moved back to Lade's downloads folder because the torrent history was cleared
