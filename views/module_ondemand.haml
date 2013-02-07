@@ -3,6 +3,31 @@
 	%head
 		%title Lade
 		%link{:rel => "stylesheet", :type => "text/css", :href => "/css/main.css"}
+		%script{:type => "text/javascript",
+				:src => "/js/jquery-1.8.1.min.js"}
+		:javascript
+			$(document).ready(function() {
+				jQuery.expr[':'].Contains = function(a,i,m){
+					return (a.textContent || a.innerText || "").toUpperCase().indexOf(m[3].toUpperCase())>=0;
+				};
+				
+				$("#filter-input").focus();
+				
+				$("#filter-input").keyup(function (e) {
+					if (e.keyCode == 13)
+				  		e.preventDefault();
+				  	
+			    	var filter = $(this).val();
+			    	if (filter) {
+			  			$("#ondemand-list li").find("a:not(:Contains(" + filter + "))").parent().slideUp();
+			  			$("#ondemand-list li").find("a:Contains(" + filter + ")").parent().slideDown();
+			    	}
+			    	else
+			    	{
+			  			$("#ondemand-list").find("li").slideDown();
+			    	}
+			  	});
+			});
 	%body
 		%ul#links
 			%li
@@ -14,7 +39,10 @@
 				
 		._600px
 			%h1 on demand for #{@module}
-			%p#ondemand-hint Click any file/release to start download
+			
+			%p#ondemand-hint
+				Click any file/release to start download
+				%input#filter-input.a-bit-wide-text-input{:type => "text", :placeholder => "Filter..."}
 			%p#ondemand-notice
 				- if @success
 					Download started successfully.
