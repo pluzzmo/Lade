@@ -1,4 +1,4 @@
-##Lade 1.0.3
+##Lade 1.0.4
 
 #####Description
 
@@ -22,6 +22,10 @@ Navigate to where you want Lade's folder created, then
 `killall ruby`, then delete Lade's folder
 
 #####Changelog
+######1.0.4
+- Added GameFront host
+- Added GameFront support for module 'Shows' (PutLocker links have more priority, though)
+
 ######1.0.3
 - Added 'on demand' for module 'Nyaa'
 - Added a new module 'Eztv' for [eztv.it](eztv.it)
