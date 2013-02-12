@@ -53,6 +53,7 @@ class Shows
 							
 							break
 						rescue StandardError => e
+							puts e.backtrace.first
 							puts e.to_s
 						end
 					end
@@ -80,22 +81,37 @@ class Shows
 	
 	def self.check_page_for_relevant_links(source, release_names, page_name, fallback)
 		zdoox_links_txt = LinkScanner.scan_for_zdoox_links(source).join("\n")
-		found_links = LinkScanner.scan_for_pl_links(source)
-		found_links += LinkScanner.scan_for_pl_links(zdoox_links_txt)
-		link_groups = PutLocker.check_urls(found_links)
+		
+		found_links = LinkScanner.scan_for_gf_links(source)
+		found_links += LinkScanner.scan_for_gf_links(zdoox_links_txt)
+		
+		found_pl_links = LinkScanner.scan_for_pl_links(source)
+		found_pl_links += LinkScanner.scan_for_pl_links(zdoox_links_txt)
+		
+		link_groups = GameFront.check_urls(found_links)
+		link_pl_groups = PutLocker.check_urls(found_pl_links)
 
 		# skip for now, not all releases have been uploaded yet
 		# if fallback = true (page is older than 1 hour) and not all files have been uploaded, download the one with the most links anyway
-		if release_names.count > link_groups.count && !fallback
+		if release_names.count > link_groups.count && release_names.count > link_pl_groups.count && !fallback
 			puts "Still not uploaded... will check later..."
 			return nil
 		end
 		
 		# the HD version is the biggest collection of files in terms of filesize
-		biggest_group = link_groups[0]
-		link_groups.each {
+		biggest_group = link_pl_groups.first
+		putlocker = true
+		link_pl_groups.each {
 			|group|
 			biggest_group = group if group[:size] > biggest_group[:size]
+		}
+				
+		link_groups.each {
+			|group|
+			if ((group[:size] > biggest_group[:size]) && ((group[:size] - biggest_group[:size]) > 5242880) && !group[:dead])
+				biggest_group = group
+				putlocker = false
+			end
 		}
 		
 		if (biggest_group[:dead])
@@ -105,7 +121,7 @@ class Shows
 		
 		links = biggest_group[:files].collect {
 			|file|
-			PutLocker.get_download_link(file)
+			(putlocker ? PutLocker : GameFront).get_download_link(file)
 		}
 		
 		release_name = release_names.collect {
@@ -115,7 +131,7 @@ class Shows
 		
 		filenames = links.collect {
 			|link|
-			filename = link.split("=").last
+			filename = (putlocker ? link.split("=").last : link.split("/").last.split("?").first)
 			filename.gsub(/.*?((\.part\d+)?\.rar)/, "#{release_name}"+'\1')
 		}
 		
@@ -189,15 +205,23 @@ class Shows
 		source = (open "http://www.myrls.me/tv/shows/#{CGI.escape(reference)}").read.to_s
 		
 		zdoox_links_txt = LinkScanner.scan_for_zdoox_links(source).join("\n")
-		found_links = LinkScanner.scan_for_pl_links(source)
-		found_links += LinkScanner.scan_for_pl_links(zdoox_links_txt)
-		link_groups = PutLocker.check_urls(found_links)
+		
+		found_links = LinkScanner.scan_for_gf_links(source)
+		found_links += LinkScanner.scan_for_gf_links(zdoox_links_txt)
+		
+		found_pl_links = LinkScanner.scan_for_pl_links(source)
+		found_pl_links += LinkScanner.scan_for_pl_links(zdoox_links_txt)
+		
+		link_groups = GameFront.check_urls(found_links)
+		link_groups += PutLocker.check_urls(found_pl_links)
 		
 		result = []
 		link_groups.each {
 			|group|
 			
 			formatted_name = group[:name]+" - "+Helper.human_size(group[:size], 8)
+			host = group[:files].first[:url].include?("putlocker.com") ? "PutLocker: " : "GameFront: "
+			formatted_name = host + formatted_name
 			new_reference = "#{reference}/#{group[:name]}"
 			
 			if (group[:dead])
@@ -216,26 +240,41 @@ class Shows
 		source = (open "http://www.myrls.me/tv/shows/#{CGI.escape(reference.first)}").read.to_s
 		
 		zdoox_links_txt = LinkScanner.scan_for_zdoox_links(source).join("\n")
-		found_links = LinkScanner.scan_for_pl_links(source)
-		found_links += LinkScanner.scan_for_pl_links(zdoox_links_txt)
-		link_groups = PutLocker.check_urls(found_links)
+		
+		found_links = LinkScanner.scan_for_gf_links(source)
+		found_links += LinkScanner.scan_for_gf_links(zdoox_links_txt)
+		
+		found_pl_links = LinkScanner.scan_for_pl_links(source)
+		found_pl_links += LinkScanner.scan_for_pl_links(zdoox_links_txt)
+		
+		link_groups = GameFront.check_urls(found_links)
+		link_pl_groups = PutLocker.check_urls(found_pl_links)
 		
 		# the HD version is the biggest collection of files in terms of filesize
 		wanted_group = nil
-		
-		link_groups.each {
-			|group|
-			wanted_group = group if (reference.last == group[:name])
+		putlocker = true
+		groups = link_pl_groups
+		Helper.attempt(2) {
+			groups.each {
+				|group|
+				wanted_group = group if (reference.last == group[:name])
+			}
+			
+			if (wanted_group.nil?)
+				groups = link_groups
+				putlocker = false
+				raise StandardError.new
+			end
 		}
 		
 		links = wanted_group[:files].collect {
 			|file|
-			PutLocker.get_download_link(file)
+			(putlocker ? PutLocker : GameFront).get_download_link(file)
 		}
 		
 		filenames = links.collect {
 			|link|
-			link.split("=").last
+			(putlocker ? link.split("=").last : link.split("/").last.split("?").first)
 		}
 		
 		return [{:type => 0, :links => links, :filenames => filenames, :reference => reference.first}]
@@ -256,7 +295,7 @@ class Shows
 	end
 	
 	def self.description
-		"Downloads US & UK TV shows from <a href=\"http://myrls.me\">MyRLS.me</a> via direct links (PutLocker). Has most airing shows except a few obscure ones."
+		"Downloads US & UK TV shows from <a href=\"http://myrls.me\">MyRLS.me</a> via direct links (PutLocker/GameFront). Has most airing shows except a few obscure ones."
 	end
 	
 	def self.broken?
