@@ -287,15 +287,16 @@ class Lade
     }
   end
   
-  def self.start_download(directlink, filename)
+  def self.start_download(directlink, filename, cookie = nil)
     # constructing the command; organized for clarity
     
     primary_cmd = "wget '#{directlink}'"
     con_params = "--continue --no-proxy --timeout 30"
     output_file = "--output-document='#{@@downloads_folder_path}#{filename}'"
     output_log = "--output-file='#{@@log_folder_path}#{filename}.txt'"
-    
-    wget = [primary_cmd, con_params, output_file, output_log].join(" ")
+    cookie = "--header 'Cookie: #{cookie}'" if cookie
+
+    wget = [primary_cmd, con_params, output_file, output_log, cookie].compact.join(" ")
     
     dl_finish_call = "ruby #{@@path}lade.rb --dejunk '#{filename}'"
     silencer = ">/dev/null 2>&1 &"
