@@ -51,3 +51,5 @@
 					- @list.each do |item|
 						%li
 							%a{:href => "/ondemand/"+@module+"/"+item[1]}= item[0]
+			- elsif @success.nil?
+				%p No releases found.
