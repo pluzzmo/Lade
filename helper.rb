@@ -104,6 +104,10 @@ class LinkScanner
 	def self.scan_for_rs_links(text)
 		text.scan(/http\:\/\/(?:www\.)?rapidshare\.com\/files\/\d+?\/.*?[\s$\<\"\']/im).flatten.uniq
 	end
+	
+	def self.scan_for_gf_links(text)
+		text.scan(/http\:\/\/(?:www\.)?gamefront\.com\/files\/\d{8}/im).flatten.uniq
+	end
 
 	def self.scan_for_pl_links(text)
 		text.scan(/http\:\/\/(?:www\.)?putlocker\.com\/file\/[a-z\d]{16}/im).flatten.uniq
