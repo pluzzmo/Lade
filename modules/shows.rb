@@ -99,7 +99,7 @@ class Shows
 		end
 		
 		# the HD version is the biggest collection of files in terms of filesize
-		biggest_group = link_pl_groups.first
+		biggest_group = link_pl_groups.first || link_groups.first
 		putlocker = true
 		link_pl_groups.each {
 			|group|
