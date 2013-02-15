@@ -89,26 +89,25 @@ class Lade
   end
   
   def self.concurrent_downloads_count
-    root_folder_name = @@path.split("/").last
+    processes = `ps ax | grep '\\\-\\\-dejunk'`
     releases_downloading = []
     
-    # get wget processes downloading to Lade's folder
-    processes = `ps ax | grep wget`
-    processes = processes.lines.select { |process|
-      process =~ /wget.*#{root_folder_name}/i
-    }
-    
     # get filenames from those processes
-    processes.each { |process|
-      process.scan(/wget\s(.*?)\s\-O/i) { |match|
-        match = match.first
-        match = match.split("/").last # get file name
-        match = match.split(".").first # ignore file extensions
-        
-        releases_downloading << match
+    processes.lines.each { |process|
+      next if process.include?("grep")
+      
+      process.scan(/\-\-dejunk\s\'(.*?)\'\)/i) { |match|
+        filename = match.flatten.first
+    
+        noextension = filename.gsub(/#{"\\"+File.extname(filename)}$/, "")
+        if noextension.match(/\.part\d+$/)
+          noextension = noextension.gsub(/#{"\\"+File.extname(noextension)}$/, "")
+        end
+    
+        releases_downloading << noextension
       }
     }
-
+    
     return releases_downloading.uniq.count
   end
   
