@@ -384,18 +384,28 @@ class Lade
           |line|
           name, timestamp = line.split(":", 2)
           
-          name = name.gsub(".torrent", "")
+          name = name.gsub(/\.torrent$/, "")
+          escaped_for_glob = name.gsub(/([\[\]\(\)\?\*])/, '\\\\\1')
           
-          if (File.exist?(@@torrent_downloads_dir+name))
-            begin
-              File.rename(@@torrent_downloads_dir+name, @@downloads_folder_path+name)
-              puts "'#{@@torrent_downloads_dir+name}' moved to '#{@@downloads_folder_path}'"
-            rescue StandardError => e
-              puts e.backtrace.first
-              puts e.to_s
-              puts "Couldn't move '#{@@torrent_downloads_dir+name}' to '#{@@downloads_folder_path}'"
+          glob_pattern = @@torrent_downloads_dir+escaped_for_glob+".*"
+          
+          Dir.glob(glob_pattern).each {
+            |downloaded_file|
+            # Don't move folders as they have no indication of download status
+            if (!File.directory?(downloaded_file))
+              if (File.extname(downloaded_file) != ".part") # skip incomplete
+                downloaded_file_name = downloaded_file.split("/").last
+                begin
+                  File.rename(downloaded_file, @@downloads_folder_path+downloaded_file_name)
+                  puts "'#{downloaded_file}' moved to '#{@@downloads_folder_path}'"
+                rescue StandardError => e
+                  puts e.backtrace.first
+                  puts e.to_s
+                  puts "Couldn't move '#{downloaded_file}' to '#{@@downloads_folder_path}'"
+                end
+              end
             end
-          end
+          }
         }
       end
       
