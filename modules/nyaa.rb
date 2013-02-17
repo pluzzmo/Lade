@@ -29,7 +29,7 @@ class Nyaa
 			
 			torrent_ids = search_result.scan(/torrentinfo\&#38;tid\=(\d+)\"\>(.*?)\<\//im).uniq.collect {
 	  		|id, name|
-	  		[id.to_i, name] if (id.to_i > cache_id && !already_downloaded.include?(id))
+	  		[id.to_i, CGI.unescapeHTML(name)] if (id.to_i > cache_id && !already_downloaded.include?(id))
 	  	}.compact.sort {
 		  	|a, b|
 		  	b.first <=> a.first
@@ -100,7 +100,7 @@ class Nyaa
 		
 		result = page.scan(/torrentinfo\&#38;tid\=(\d+)\"\>(.*?)\<\//im).uniq.collect {
 			|id, name|
-			[name, id]
+			[CGI.unescapeHTML(name), id]
 		}
 		
 		result
