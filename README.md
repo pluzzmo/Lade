@@ -1,4 +1,4 @@
-##Lade 1.0.4
+##Lade 1.0.5
 
 #####Description
 
@@ -22,6 +22,12 @@ Navigate to where you want Lade's folder created, then
 `killall ruby`, then delete Lade's folder
 
 #####Changelog
+######1.0.5
+- Fixed module 'Nyaa' not stripping html entities from filenames
+- Fixed irregularities in how Lade moves finished torrent downloads (Now: won't move folders anymore + will try moving downloads even if the extension is missing from the .torrent name)
+- Fixed module 'Shows' not downloading from GameFront if no PutLocker were found
+- Fixed Maximum Concurrent Downloads setting not being taking into account because `Lade.concurrent_downloads_count` wasn't working
+
 ######1.0.4
 - Added GameFront host
 - Added GameFront support for module 'Shows' (PutLocker links have more priority, though)
