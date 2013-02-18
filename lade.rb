@@ -379,39 +379,56 @@ class Lade
         break
       end
       
+      # Move finished torrent downloads to Lade's downloads folder
       if (torrent_downloads_move)
         ListFile.new(@@torrent_history_path).list.each {
           |line|
-          name, timestamp = line.split(":", 2)
+          torrent_filename, timestamp = line.split(":", 2)
+          torrent_filename = torrent_filename.gsub(/\.torrent$/, "")
           
-          name = name.gsub(/\.torrent$/, "")
-          escaped_for_glob = name.gsub(/([\[\]\(\)\?\*])/, '\\\\\1')
+          downloaded_file = @@torrent_downloads_dir+torrent_filename
           
-          glob_pattern = @@torrent_downloads_dir+escaped_for_glob+".*"
+          to_move = []
           
-          Dir.glob(glob_pattern).each {
-            |downloaded_file|
-            # Don't move folders as they have no indication of download status
-            if (!File.directory?(downloaded_file))
-              if (File.extname(downloaded_file) != ".part") # skip incomplete
-                downloaded_file_name = downloaded_file.split("/").last
-                begin
-                  File.rename(downloaded_file, @@downloads_folder_path+downloaded_file_name)
-                  puts "'#{downloaded_file}' moved to '#{@@downloads_folder_path}'"
-                rescue StandardError => e
-                  puts e.backtrace.first
-                  puts e.to_s
-                  puts "Couldn't move '#{downloaded_file}' to '#{@@downloads_folder_path}'"
-                end
+          if (File.exist?(downloaded_file))
+            # file with given torrent filename exists, let's move that
+            to_move << downloaded_file
+          else
+            # file with given torrent filename doesn't exists, let's try other extensions
+            escaped_for_glob = downloaded_file.gsub(/([\[\]\(\)\?\*])/, '\\\\\1')
+            glob_pattern = escaped_for_glob+".*"
+            files = Dir.glob(glob_pattern)
+            
+            files.each {
+              |a_file|
+              # Skip folders as they have no indication of download status
+              # Skip incomplete files
+              if (!File.directory?(a_file) && File.extname(downloaded_file) != ".part")
+                to_move << a_file
               end
+            }
+          end
+          
+          to_move.each {
+            |source|
+            
+            new_name = source.split("/").last
+            begin
+              File.rename(source, @@downloads_folder_path+new_name)
+              puts "'#{source}' moved to '#{@@downloads_folder_path}'"
+            rescue StandardError => e
+              puts e.backtrace.first
+              puts e.to_s
+              puts "Couldn't move '#{source}' to '#{@@downloads_folder_path}'"
             end
           }
         }
       end
       
       archives = [] # .rar/.zip files needing extraction
-      torrents = [] # .torrent files needing moving
+      torrents = [] # .torrent files needing moving from downloads to autoadd folder
       
+      # See if we have any archives/.torrent that need extracting/moving
       (Dir.entries @@downloads_folder_path).each {
         |entry|
         
@@ -433,6 +450,7 @@ class Lade
         end
       }
       
+      # Move the .torrent files
       if (torrent_configured)
         moved = []
         @@torrent_autoadd_dir += "/" unless @@torrent_autoadd_dir.end_with?"/"
@@ -452,6 +470,7 @@ class Lade
         ListFile.add_and_save(@@torrent_history_path, moved)
       end
       
+      # Extract the archives
       if (@@extract)
         puts "****************\nExtraction time!\n****************\n"
         puts "No files to extract." if archives.count == 0
