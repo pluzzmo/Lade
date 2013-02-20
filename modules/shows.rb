@@ -135,7 +135,7 @@ class Shows
 			filename.gsub(/.*?((\.part\d+)?\.rar)/, "#{release_name}"+'\1')
 		}
 		
-		return {:type => 0, :links => links, :filenames => filenames, :reference => page_name}
+		return {:type => 0, :links => links, :filenames => filenames, :file => release_name, :reference => page_name}
 	end
 	
 	def self.check_page_for_release_names(source, show_looking_for)

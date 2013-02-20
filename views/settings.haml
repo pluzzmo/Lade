@@ -19,6 +19,24 @@
 						$(this).next().val("true");
 					}
 				});
+				
+				$(".next-section").click(function(){
+					$(this).parent().parent().hide();
+					
+					if ($(this).parent().parent().next().hasClass("_500px"))
+						$(this).parent().parent().next().show();
+					else
+						$(this).parent().parent().parent().children().first().show();
+				});
+				
+				$(".prev-section").click(function(){
+					$(this).parent().parent().hide();
+
+					if ($(this).parent().parent().prev().hasClass("_500px"))
+						$(this).parent().parent().prev().show();
+					else
+						$(this).parent().parent().parent().children().last().prev().show();
+				});
 			});
 	%body
 		%ul#links
@@ -28,6 +46,8 @@
 				%a.current{:href => "/settings"}settings
 			%li
 				%a{:href => "/ondemand"}on demand
+			%li
+				%a{:href => "https://github.com/inket/Lade/issues"}feedback
 		
 		._500px
 			%h1
@@ -40,86 +60,182 @@
 						%a.button-link{:href => "/module/#{module_name}"}= module_name.capitalize
 			
 			%form#settingsform{:name => "form", :method => "POST"}
-				.clear
-				%h1
-					general settings
+				._500px
+					%h1
+						general settings
+						.next-section
+						.section-indicator 1 of 4
+						.prev-section
+						
+					.form-el
+						Checking frequency
+						%input.text-input{:type => "text", :name => "freq", :value => @freq}/
+						.clear
+						.el-description Lade should check for new releases every &lt;freq&gt; minutes. [range: 3-60]
+						.clear
 					
-				.form-el
-					Checking frequency
-					%input.text-input{:type => "text", :name => "freq", :value => @freq}/
-					.clear
-					.el-description Lade should check for new releases every &lt;freq&gt; minutes. [range: 3-60]
-					.clear
-				.form-el
-					Maximum concurrent downloads
-					%input.text-input{:type => "text", :name => "max_concurrent_downloads", :value => @max_concurrent_downloads}/
-					.clear
-					.el-description Number of releases that can be downloaded at the same time. [0: unlimited]
-					.clear
-				.form-el
-					Extract automatically
-					#extractSwitch.switch
-						.title
-						%div{:class => (@extract ? "switchon" : "switchoff")}
-						%input#extractValue{:type => "hidden", :name => "extract", :value => @extract.to_s}
-					.clear
-					.el-description Should Lade extract finished downloads automatically ?
-					.clear
+					.form-el
+						Maximum concurrent downloads
+						%input.text-input{:type => "text", :name => "max_concurrent_downloads", :value => @max_concurrent_downloads}/
+						.clear
+						.el-description Number of releases that can be downloaded at the same time. [0: unlimited]
+						.clear
 					
-				.form-el
-					Automatic updates
-					#updatesSwitch.switch
-						.title
-						%div{:class => (@updates ? "switchon" : "switchoff")}
-						%input#updatesValue{:type => "hidden", :name => "updates", :value => @updates.to_s}
-					.clear
-					.el-description Should Lade update its files automatically ? [recommended]
-					.clear
-				
-				%h1
-					torrent settings
-					
-				.form-el
-					Torrent auto-add folder
-					%input.wide-text-input{:type => "text", :name => "torrent_autoadd_dir", :placeholder => "/home/user/example/", :value => @torrent_autoadd_dir}/
-					.clear
-					.el-description Your torrent client's auto-add directory so Lade can give it .torrent files.
-					
-				.form-el
-					Torrent downloads folder
-					%input.wide-text-input{:type => "text", :name => "torrent_downloads_dir", :placeholder => "/home/user/example/", :value => @torrent_downloads_dir}/
-					.clear
-					.el-description Your torrent client's downloads directory so Lade can try moving its downloads. <br>(Lade will not move folders.)
-				
-				%h1
-					interface settings
-					
-				.form-el
-					Require authentication
-					#authenticationSwitch.switch
-						.title
-						%div{:class => (@authentication ? "switchon" : "switchoff")}
-						%input#authenticationValue{:type => "hidden", :name => "authentication", :value => @authentication.to_s}
-					.clear
-					.el-description
-						Require authentication for Lade's web interface ? (Delete 'config/password' if locked out)
-					.clear
-				
-				.form-el
-					Username
-					%input.regular-text-input{:type => "text", :name => "auth_login", :value => @auth_login}/
-					.clear
-					.el-description Username that would be required for the authentication.
-					.clear
-					
-				.form-el
-					Password
-					%input.regular-text-input{:type => "text", :name => "auth_password", :value => @auth_password.nil? ? "" : "********"}/
-					.clear
-					.el-description Password that would be required for the authentication.
-					.clear
+					.form-el
+						Require confirmation before downloading
+						#confirmSwitch.switch
+							.title
+							%div{:class => (@require_confirm ? "switchon" : "switchoff")}
+							%input#confirmValue{:type => "hidden", :name => "require_confirm", :value => @require_confirm.to_s}
+						.clear
+						.el-description Should Lade wait for confirmation before starting downloads ?
+						.clear
 
+					
+					.form-el
+						Extract automatically
+						#extractSwitch.switch
+							.title
+							%div{:class => (@extract ? "switchon" : "switchoff")}
+							%input#extractValue{:type => "hidden", :name => "extract", :value => @extract.to_s}
+						.clear
+						.el-description Should Lade extract finished downloads automatically ?
+						.clear
+						
+					.form-el
+						Automatic updates
+						#updatesSwitch.switch
+							.title
+							%div{:class => (@updates ? "switchon" : "switchoff")}
+							%input#updatesValue{:type => "hidden", :name => "updates", :value => @updates.to_s}
+						.clear
+						.el-description Should Lade update its files automatically ? [recommended]
+						.clear
 				
+				._500px
+					%h1
+						interface settings
+						.next-section
+						.section-indicator 2 of 4
+						.prev-section
+						
+					.form-el
+						Require authentication
+						#authenticationSwitch.switch
+							.title
+							%div{:class => (@authentication ? "switchon" : "switchoff")}
+							%input#authenticationValue{:type => "hidden", :name => "authentication", :value => @authentication.to_s}
+						.clear
+						.el-description
+							Require authentication for Lade's web interface ? (Delete 'config/password' if locked out)
+						.clear
+					
+					.form-el
+						Username
+						%input.regular-text-input{:type => "text", :name => "auth_login", :value => @auth_login}/
+						.clear
+						.el-description Username that would be required for the authentication.
+						.clear
+						
+					.form-el
+						Password
+						%input.regular-text-input{:type => "text", :name => "auth_password", :value => @auth_password.nil? ? "" : "********"}/
+						.clear
+						.el-description Password that would be required for the authentication.
+						.clear
+				
+				._500px
+					%h1
+						torrent settings
+						.next-section
+						.section-indicator 3 of 4
+						.prev-section
+						
+					.form-el
+						Torrent auto-add folder
+						%input.wide-text-input{:type => "text", :name => "torrent_autoadd_dir", :placeholder => "/home/user/example/", :value => @torrent_autoadd_dir}/
+						.clear
+						.el-description Your torrent client's auto-add directory so Lade can give it .torrent files.
+						
+					.form-el
+						Torrent downloads folder
+						%input.wide-text-input{:type => "text", :name => "torrent_downloads_dir", :placeholder => "/home/user/example/", :value => @torrent_downloads_dir}/
+						.clear
+						.el-description Your torrent client's downloads directory so Lade can try moving its downloads. <br>(Lade will not move folders.)
+				
+
+				._500px
+					%h1
+						notifications settings
+						.next-section
+						.section-indicator 4 of 4
+						.prev-section
+						
+					.form-el
+						Enable Growl notifications
+						#growlSwitch.switch
+							.title
+							%div{:class => (@growl_notifications ? "switchon" : "switchoff")}
+							%input#growlValue{:type => "hidden", :name => "growl_notifications", :value => @growl_notifications.to_s}
+						.clear
+						.el-description
+							Send notifications to Growl about downloads.<br>(Check "Listen for incoming notifications" in Growl for this to work)
+						.clear
+						
+					.form-el
+						Notify on download start
+						#notifyStartSwitch.switch
+							.title
+							%div{:class => (@notify_on_download_start ? "switchon" : "switchoff")}
+							%input#notifyStartValue{:type => "hidden", :name => "notify_on_download_start", :value => @notify_on_download_start.to_s}
+						.clear
+						.el-description
+							Send a notification to Growl each time Lade starts a download.
+						.clear
+					
+					.form-el
+						Notify on download finish
+						#notifyFinishSwitch.switch
+							.title
+							%div{:class => (@notify_on_download_finish ? "switchon" : "switchoff")}
+							%input#notifyFinishValue{:type => "hidden", :name => "notify_on_download_finish", :value => @notify_on_download_finish.to_s}
+						.clear
+						.el-description
+							Send a notification to Growl each time Lade finishes a download.
+						.clear
+						
+					.form-el
+						Notify when a download needs confirmation
+						#notifyConfirmSwitch.switch
+							.title
+							%div{:class => (@notify_on_download_confirm ? "switchon" : "switchoff")}
+							%input#notifyConfirmValue{:type => "hidden", :name => "notify_on_download_confirm", :value => @notify_on_download_confirm.to_s}
+						.clear
+						.el-description
+							Send a notification to Growl each time Lade needs your confirmation to start a download.
+						.clear
+					
+					.form-el
+						Growl Server Address
+						%input.regular-text-input{:type => "text", :name => "growl_host", :value => @growl_host}/
+						.clear
+						.el-description Address of the Growl server.
+						.clear
+						
+					.form-el
+						Growl Server Port
+						%input.text-input{:type => "text", :name => "growl_port", :value => @growl_port, :style => "width: 50px;"}/
+						.clear
+						.el-description Port of the Growl server if needed. (Will use default port if left empty)
+						.clear
+					
+					.form-el
+						Growl Server Password
+						%input.regular-text-input{:type => "password", :name => "growl_password", :value => @growl_password}/
+						.clear
+						.el-description Password of the Growl server if needed.
+						.clear
+
 				%input#form-save{:type => "submit", :value => "Save"}
 					
 			.clear

@@ -1,3 +1,5 @@
+require 'yaml'
+
 class FileConfig
 	@@path = File.join(File.dirname(__FILE__), *%w[/])
 	@@config_file_path = @@path+"config/settings"
@@ -243,6 +245,83 @@ class Helper
 			else
 				raise e
 			end
+		end
+	end
+end
+
+class PrettyError
+	def initialize(message = nil, exception = StandardError.new, full_backtrace = false)
+		@message = message
+		@exception = exception
+		@full_backtrace = full_backtrace
+	end
+	
+	def to_s
+		lines = []
+		lines << "*Additional message: "+@message if @message
+		lines << "*Error: #{@exception}"
+		
+		if (@exception.backtrace)
+			if (@full_backtrace)
+				lines << "*Backtrace: \n\t"+@exception.backtrace.join("\n\t")
+			else
+				lines << "*Backtrace: "+@exception.backtrace.first
+			end
+		end
+
+		"Caught Exception: #{@exception.class} {\n#{lines.join("\n")}\n}"
+	end
+end
+
+class YAMLFile
+	attr_reader :path, :value
+	
+	def initialize(path)
+		@path = path
+		
+		begin
+			if (File.exist?(path))
+				File.open(path, "r") do |f|
+					@value = YAML.load(f.read) || []
+				end
+			end
+		rescue StandardError => e
+			puts PrettyError.new("Error while loading YAML file", e, true)
+		end
+	end
+	
+	def <<(new_data)
+		begin
+			array = nil
+			
+			File.open(@path, "r") do |f|
+				array = YAML.load(f.read)
+			end
+			
+			array = [] unless array.kind_of?(Array)
+			array << new_data
+			
+			File.open(@path, "w") do |f|
+				f.write(array.to_yaml)
+			end
+			
+			true
+		rescue StandardError => e
+			puts PrettyError.new("Error while appending to YAML file '#{@path}'", e, true)
+			false
+		end
+	end
+	
+	def overwrite(new_data)
+		begin
+			File.open(@path, "w") do |f|
+				f.write(new_data.to_yaml)
+			end
+			
+			true
+		rescue StandardError => e
+			puts PrettyError.new("Error while writing to YAML file '#{@path}'", e, true)
+			false
 		end
 	end
 end

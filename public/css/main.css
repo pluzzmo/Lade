@@ -66,9 +66,13 @@ ul {
 	padding: 0;
 }
 
-.download {
+.download, .download-confirm {
 	margin: 20px auto;
 	width: 600px;
+}
+
+.download-confirm {
+	margin: 8px auto;
 }
 
 #extracting {
@@ -111,7 +115,12 @@ p {
 	word-break: break-all;
 }
 
-body.alter .filename {
+.download-confirm p .filename {
+	font-weight: 400;
+	line-height: 18px;
+}
+
+body.alter .filename, .download-confirm p .filename {
 	width: 85%;
 }
 
@@ -143,6 +152,15 @@ body.alter .filename {
 .close a, .close a:hover {
 	color: #FFF;
 	text-decoration: none;
+}
+
+.download-confirm p .close {
+	display: inline-block;
+}
+
+.download-confirm p .info .button-link {
+	line-height: 12px;
+	padding: 1px 4px;
 }
 
 body.alter .close {
@@ -185,6 +203,14 @@ body.alter .close {
 
 #settingsform {
 	margin: auto;
+}
+
+#settingsform ._500px {
+	display: none;
+}
+
+#settingsform ._500px:first-child {
+	display: block;
 }
 
 #module-links {
@@ -313,10 +339,10 @@ body.alter .close {
 	border-radius: 2px;
 	color: #FFF;
 	cursor: pointer;
-	font-size: 16px;
+	font-size: 15px;
 	font-weight: bold;
-	margin-top: 25px;
-	padding: 8px 30px;
+	margin-top: 35px;
+	padding: 6px 20px;
 }
 
 #form-save:hover {
@@ -742,17 +768,17 @@ body.torrent-history-visible #torrent-history {
 	text-decoration: none;
 }
 
-#broken-modules {
-	background: rgba(209, 45, 41, 0.100);
+#broken-modules, #needed_gems {
+	background: rgba(209, 45, 41, 0.075);
 	border-radius: 2px;
-	color: rgba(209, 45, 41, 1);
+	color: rgba(209, 45, 41, 0.8);
 }
 
 #broken-modules p {
 	padding: 5px 5px 0 5px;
 }
 
-#broken-modules ul {
+#broken-modules ul, #needed_gems ul, #needed_gems p {
 	padding: 5px;
 }
 
@@ -792,4 +818,36 @@ body.torrent-history-visible #torrent-history {
 
 #filter-input {
 	float: right;
+}
+
+.prev-section, .next-section {
+	font-weight: 100;
+	display: inline-block;
+	float: right;
+	font-size: 40px;
+	line-height: 20px;
+	color: #333;
+	cursor: pointer;
+	margin: 0 10px;
+}
+
+.prev-section:hover, .next-section:hover {
+	color: #000;
+	font-weight: 200;
+}
+
+.prev-section:before {
+	content: "<";
+}
+
+.next-section:after {
+	content: ">";
+}
+
+.section-indicator {
+	font-size: 12px;
+	font-weight: 400;
+	display: inline-block;
+	float: right;
+	line-height: 28px;
 }

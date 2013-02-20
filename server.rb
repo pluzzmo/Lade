@@ -1,5 +1,4 @@
 require "rubygems"
-require "bundler/setup"
 
 require 'sinatra'
 require 'haml'
@@ -37,7 +36,6 @@ if (require_authentication)
 	
 	require_authentication = false if @@auth_name.nil? || @@auth_pw.nil?
 end
-
 
 # set up the timer
 @@scheduler = Rufus::Scheduler.start_new
@@ -131,6 +129,12 @@ get '/' do
 			@unrar_errors = f.read.gsub("\n", "<br>")
 		end
 	end
+	
+	begin
+		@queue = YAMLFile.new(@@path+"config/queue").value || []
+	rescue Exception
+		@queue = []
+	end
 
 	# Get list of downloading files, progress, speed, eta, etc.
 	@global_speed = 0
@@ -210,7 +214,10 @@ get '/' do
 	@installed_modules = Lade.available_modules
 	
 	# Get list of broken modules
-	@broken_modules = @installed_modules.empty? ? [] : ListFile.new(path+"config/"+"broken_modules").list
+	@broken_modules = @installed_modules.empty? ? [] : ListFile.new(path+"config/broken_modules").list
+	
+	# Get list of needed gems
+	@needed_gems = Updater.needed_gems
 	
 	# Get Lade status
 	@config = FileConfig.getConfig
@@ -239,11 +246,20 @@ get '/settings' do
 	@freq = settings["freq"] || 5
 	@extract = settings["extract"].nil? ? true : settings["extract"]
 	@updates = settings["enable_updates"].nil? ? true : settings["enable_updates"]
+	@require_confirm = settings["require_confirm"].nil? ? false : settings["require_confirm"]
 	@max_concurrent_downloads = settings["max_concurrent_downloads"] || 0
 	@torrent_autoadd_dir = settings["torrent_autoadd_dir"] || ""
 	@torrent_downloads_dir = settings["torrent_downloads_dir"] || ""
 	@authentication = settings["authentication"] || false
 	@auth_login, @auth_password = ListFile.new(path+"config/password").list
+	@growl_notifications = settings["growl_notifications"] || false
+	@growl_host = settings["growl_host"] || ""
+	@growl_port = settings["growl_port"] || ""
+	@growl_password = settings["growl_password"] || ""
+	@notify_on_download_start = settings["notify_on_download_start"].nil? ? false : settings["notify_on_download_start"]
+	@notify_on_download_finish = settings["notify_on_download_finish"].nil? ? false : settings["notify_on_download_finish"]
+	@notify_on_download_confirm = settings["notify_on_download_confirm"].nil? ? false : settings["notify_on_download_confirm"]
+	
 	@modules = Lade.available_modules
 
 	haml :settings
@@ -257,6 +273,7 @@ post '/settings' do
 		settings["max_concurrent_downloads"] = params[:max_concurrent_downloads].to_i
 		settings["extract"] = (params[:extract] == "true" ? true : false)
 		settings["enable_updates"] = (params[:updates] == "true" ? true : false)
+		settings["require_confirm"] = (params[:require_confirm] == "true" ? true : false)
 		settings["torrent_autoadd_dir"] = params[:torrent_autoadd_dir]
 		settings["torrent_downloads_dir"] = params[:torrent_downloads_dir]
 		settings["authentication"] = (params[:authentication] == "true" ? true : false)
@@ -265,8 +282,17 @@ post '/settings' do
 			ListFile.overwrite(path+"config/password", [params[:auth_login], params[:auth_password]])
 		end
 		
+		settings["growl_notifications"] = (params[:growl_notifications] == "true" ? true : false)
+		settings["growl_host"] = params[:growl_host]
+		settings["growl_port"] = params[:growl_port]
+		settings["growl_password"] = params[:growl_password]
+		settings["notify_on_download_start"] = (params[:notify_on_download_start] == "true" ? true : false)
+		settings["notify_on_download_finish"] = (params[:notify_on_download_finish] == "true" ? true : false)
+		settings["notify_on_download_confirm"] = (params[:notify_on_download_confirm] == "true" ? true : false)
+		
 		FileConfig.saveConfig(settings)
-
+		Lade.load_config
+		
 		redirect to("/")
 	rescue
 		haml :settings
@@ -392,7 +418,7 @@ get '/ondemand/:module/*' do
 			raise StandardError.new("Module didn't return further download information for #{@reference.to_s}") unless @result && !@result.empty?
 
 			if @result.first.kind_of?(Hash) # module returned links
-				Lade.start_downloads(@module.downcase, @result)
+				Lade.start_downloads(@module.downcase, @result, true)
 				@success = true
 			else # module returned another list
 				@list = @result
@@ -406,6 +432,52 @@ get '/ondemand/:module/*' do
 	else
 		redirect to("/")
 	end
+end
+
+get '/queue/start/:ref' do
+	file = YAMLFile.new(@@path+"config/queue")
+	queue = file.value
+	reference = params[:ref]
+	to_start = []
+	
+	if (queue)
+		queue = queue.delete_if {
+			|hash|
+			if (hash[:reference] == reference)
+				to_start << hash
+				true
+			else
+				false
+			end
+		}
+	
+		Lade.start_downloads("", to_start, true)
+		file.overwrite(queue)
+	end
+	
+	redirect to("/")
+end
+
+get '/queue/remove/:ref' do
+	file = YAMLFile.new(@@path+"config/queue")
+	queue = file.value
+	reference = params[:ref]
+
+	if (queue)
+		queue = queue.delete_if {
+			|hash|
+			hash[:reference] == reference
+		}
+		file.overwrite(queue)
+	end
+	
+	redirect to("/")
+end
+
+get '/queue/clear' do
+	YAMLFile.new(@@path+"config/queue").overwrite([])
+	
+	redirect to("/")
 end
 
 get '/removeall' do
@@ -528,11 +600,15 @@ get '/restart' do
 	redirect to("/restart.html")
 end
 
-get '/quit' do
+get '/stop' do
 	@@scheduler.in '2s' do
 		load @@path+"updater.rb"
 		Updater.quit
 	end
 	
 	redirect to("/quit.html")
+end
+
+get '/quit' do
+	redirect to("/stop")
 end

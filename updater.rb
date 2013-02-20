@@ -79,10 +79,6 @@ class Updater
 		end
 	end
 	
-	def self.forceupdate
-		self.update(true)
-	end
-	
 	def self.update_broken_modules_list
 		modules_folder = @@path+"modules/"
 		broken_modules = []
@@ -109,6 +105,18 @@ class Updater
 		
 		broken_modules_list_path = @@path+"config/broken_modules"
 		ListFile.overwrite(broken_modules_list_path, broken_modules)
+	end
+	
+	def self.needed_gems
+		optional_gems = ["ruby_gntp"]
+			
+		needed_gems = []
+		optional_gems.each {
+			|name|
+			next if Updater.gem_available?(name)
+			needed_gems << name
+		}
+		needed_gems
 	end
 	
 	def self.available_modules
@@ -217,6 +225,21 @@ class Updater
 		$stdout.sync = true
 	end
 	
+	def self.gem_available?(name)
+		Gem::Specification.find_by_name(name)
+	rescue Gem::LoadError
+		false
+	rescue
+		Gem.available?(name)
+	end
+	
+	def self.install_needed_gems
+		if (!Updater.needed_gems.empty?)
+			Dir.chdir(@@path)
+			system("bundle", "install")
+		end
+	end
+	
 	def self.get_pid
 		pid = (ARGV[0] == "stop" ? nil : Process.pid.to_s)
 		if (File.exist?(@@path+"config/pid"))
@@ -273,15 +296,11 @@ class Updater
 
 	def self.main
 		Updater.log do
-			restart = Updater.update
-			
-			if restart
-				Updater.restart
-			end
+			Updater.restart if Updater.update
 		end
 	end
 end
 
-Updater.forceupdate if ARGV[0] == "-f" # Force update
+Updater.update(true) if ARGV[0] == "-f" # Force update
+Updater.update if ARGV[0] == "--test" # Test updating
 Updater.gen_version_file if ARGV[0] == "-g" # Generate version file (repo only)
-Updater.update(false) if ARGV[0] == "--test" # Test updating

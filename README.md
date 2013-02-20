@@ -1,4 +1,4 @@
-##Lade 1.0.5
+##Lade 1.1
 
 #####Description
 
@@ -19,9 +19,16 @@ Navigate to where you want Lade's folder created, then
 `wget "https://dl.dropbox.com/u/2439981/Lade/install.rb" && ruby install.rb`
 
 #####Uninstall
-`killall ruby`, then delete Lade's folder
+`ruby process.rb stop`, then delete Lade's folder
 
 #####Changelog
+######1.1
+- Added Growl notifications! (needs gem *ruby_gntp* + see settings to set it up)
+- You can now configure Lade to wait for your confirmation before starting downloads.
+- Organized settings page in a major way, check it out!
+- Added Feedback link
+
+
 ######1.0.5
 - Fixed module 'Nyaa' not stripping html entities from filenames
 - Fixed irregularities in how Lade moves finished torrent downloads (Now: won't move folders anymore + will try moving downloads even if the extension is missing from the .torrent name)

@@ -6,6 +6,8 @@
 		%a{:href => "/settings"}settings
 	%li
 		%a{:href => "/ondemand"}on demand
+	%li
+		%a{:href => "https://github.com/inket/Lade/issues"}feedback
 		
 %form#mainswitchform{:name => "form"}
 	#enabledSwitch.switch
@@ -36,11 +38,25 @@
 			%p It doesn't look like you have any modules installed.
 			%a#no-modules-button.button-link{:href => "/install"} Install new modules !
 	
+	- if !@needed_gems.empty?
+		#needed_gems
+			%p The latest update added dependency for additional gems. Please restart Lade through Terminal to install them.
+	
 	%h1
 		=@header
 		- if !@torrent_history.empty?
 			#magnet-icon.torrent-history.icon
 	%ul
+		- @queue.each do |queue_item|
+			.download-confirm
+				%p
+					%span.filename #{queue_item[:file]}
+					%span.close
+						%a{:href => "/queue/remove/"+queue_item[:reference]} x
+					%span.info
+						%a.thin.button-link{:href => "/queue/start/"+queue_item[:reference]} Start
+		
+					
 		- @downloads.each do |download|
 			.download
 				%p

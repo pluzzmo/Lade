@@ -2,27 +2,12 @@
 ####
 ###
 ##
-# Lade v1.0
+# Lade v1.1
 class Lade
 #
 ##
 ###
 ####
-#####
-
-#####
-## Configuration
-#####
-  ### smartphone notifications
-  ## windows phone
-  @@notifywp7 = false # true: notifies your windows phone
-  @@supertoasty = false
-  #false: uses notify my windows phone (notifymywindowsphone.com)
-  #true: uses toasty (supertoasty.com)
-  @@wpapikey = "" # your supertoasty/nmwp api key
-  
-#####
-## Configuration End
 #####
 
   require 'rubygems'
@@ -46,6 +31,7 @@ class Lade
   
   @@already_downloaded_list_path = @@config_folder_path+"downloaded"
   @@torrent_history_path = @@config_folder_path+"torrent_history"
+  @@queue_path = @@config_folder_path+"queue"
   
   def self.load_config
     @@config = FileConfig.getConfig
@@ -53,9 +39,18 @@ class Lade
     @@max_concurrent_downloads = @@config["max_concurrent_downloads"] || 1
     @@max_concurrent_downloads = 99 if @@max_concurrent_downloads == 0
     @@extract = @@config["extract"]
+    @@require_confirmation = @@config["require_confirm"]
     @@jdremote = @@config["jdremote"]
     @@torrent_autoadd_dir = @@config["torrent_autoadd_dir"] || ""
     @@torrent_downloads_dir = @@config["torrent_downloads_dir"] || ""
+    
+    @@growl_notifications = @@config["growl_notifications"] || false
+    @@growl_host = @@config["growl_host"]
+    @@growl_port = @@config["growl_port"] || 23053
+    @@growl_password = @@config["growl_password"] || ""
+    @@notify_on_download_start = @@config["notify_on_download_start"]
+    @@notify_on_download_finish = @@config["notify_on_download_finish"]
+    @@notify_on_download_confirm = @@config["notify_on_download_confirm"]
   end
   
   def self.prep_directories
@@ -66,9 +61,8 @@ class Lade
         begin
           Dir.mkdir(dir)
         rescue StandardError => e
-          puts "Fatal error"
-          puts e.to_s
-          false
+          puts PrettyError.new("Couldn't create necessary folders", e)
+          return false
         end
       end
     }
@@ -111,18 +105,55 @@ class Lade
     return releases_downloading.uniq.count
   end
   
-  def self.notify_smartphone(filename)
-    app_name = "Lade"
-    description = "#{filename} finished downloading"
+  def self.notify(filename, action_type)
+    Lade.load_config
     
-    if (@@notifywp7)
-      if (@@supertoasty)
-        url = "http://api.supertoasty.com/notify/#{@@wpapikey}&sender=#{app_name}&title=#{description}&text=#{description}"
-      else
-        url = "http://notifymywindowsphone.com/publicapi/notify?apikey=#{@@wpapikey}&application=#{app_name}&event=#{description}&description=#{description}"
+    growl_gem_available = Updater.gem_available?("ruby_gntp")
+    
+    should_notify = [
+      @@notify_on_download_start,
+      @@notify_on_download_finish,
+      @@notify_on_download_confirm][action_type-1]
+    should_notify = should_notify && @@growl_notifications
+    should_notify = should_notify && !@@growl_host.nil? && !@@growl_host.strip.empty?
+    
+    if (should_notify && growl_gem_available)
+      begin
+        require 'ruby_gntp'
+        port = ((@@growl_port.nil? || @@growl_port.empty?) ? 23053 : @growl_port.to_i)
+        growl = GNTP.new("Lade", @@growl_host, @@growl_password, port)
+        growl.register({
+          :notifications => [
+            {:name => "Download Start"},
+            {:name => "Download Finish"},
+            {:name => "Download Needs Confirmation"}]
+        })
+        
+        case action_type
+        when 1
+          name = "Download Start"
+          title = "Lade started a download"
+        when 2
+          name = "Download Finish"
+          title = "Lade finished a download"
+        when 3
+          name = "Download Needs Confirmation"
+          title = "Lade needs confirmation to download"
+        end
+        
+        notification = {
+          :name => name,
+          :title => title,
+          :text => filename,
+          :icon => @@path+"public/images/Lade.jpg"
+        }
+        
+        growl.notify(notification)
+      rescue StandardError => e
+        puts PrettyError.new("Couldn't send a Growl notification.", e)
       end
-      
-      open url.gsub(" ", "+")
+    elsif (should_notify && !growl_gem_available)
+      puts "Please restart Lade through Terminal to install the required gem 'ruby_gntp'"
     end
   end
   
@@ -138,9 +169,7 @@ class Lade
         
         puts reason unless reason.nil?
       rescue StandardError => e
-        puts "There was a problem running the module #{mod}."
-        puts e.to_s
-        puts e.backtrace.join("\n")
+        puts PrettyError.new("There was a problem running the module #{mod}.", e, true)
       end
     }
   end
@@ -178,8 +207,7 @@ class Lade
       begin
         module_class.install if module_class.respond_to?("install")
       rescue StandardError => e
-        puts e.to_s
-        puts e.backtrace.first
+        puts PrettyError.new(nil, e)
         throw :reason, "Module #{module_name} didn't install correctly."
       end
       
@@ -190,8 +218,7 @@ class Lade
     begin
       module_class.always_run if module_class.respond_to?"always_run"
     rescue StandardError => e
-      puts e.to_s
-      puts e.backtrace.first
+      puts PrettyError.new(nil, e)
       throw :reason, "Module #{module_name} had a problem running 'always_run'"
     end
     
@@ -214,8 +241,7 @@ class Lade
     begin
       links = module_class.run(to_download, already_downloaded, max).flatten.compact
     rescue StandardError => e
-      puts e.to_s
-      puts e.backtrace.first
+      puts PrettyError.new(nil, e)
       throw :reason, "There was a problem running the module #{module_name}."
     end
     
@@ -234,8 +260,7 @@ class Lade
         already_downloaded.save
       end
     rescue StandardError => e
-      puts e.to_s
-      puts e.backtrace.first
+      puts PrettyError.new(nil, e)
       throw :reason, "Module #{module_name} had a problem updating its cache."
     end
 
@@ -259,30 +284,43 @@ class Lade
       begin
         load p
       rescue StandardError => e
-        puts "Couldn't load host script #{name}"
-        puts e.to_s
+        puts PrettyError.new("Couldn't load host script #{name}", e)
       end 
     }
   end
   
-  def self.start_downloads(module_name, links)
+  def self.start_downloads(module_name, links, from_queue = false)
     jd = nil
     
     links.each {
       |hash|
       
-      # types: 0 = directlink, 10 = for jdownloader
-      if (hash[:type] == 0)
-        hash[:links].each_index {
-          |i|
-          self.start_download(hash[:links][i], hash[:filenames][i])
-        }
-      elsif (hash[:type] == 10)
-        jd = JDownloader.new(@@jdremote) if jd.nil?
-        jd.process(hash[:links], @@downloads_folder_path)
+      filename = hash[:file] || hash[:filenames].first
+      filename = filename.gsub(/\.((part\d+\.)?rar|zip|torrent)$/, "")
+      
+      if (@@require_confirmation && !from_queue)
+        queue = YAMLFile.new(@@queue_path)
+        queue << hash
+        puts "'#{hash[:file]}' added to queue and will require confirmation before starting download"
+        Lade.notify(filename, 3)
+      else
+        # types: 0 = directlink, 10 = for jdownloader
+        if (hash[:type] == 0)
+          hash[:links].each_index {
+            |i|
+            self.start_download(hash[:links][i], hash[:filenames][i])
+          }
+        elsif (hash[:type] == 10)
+          jd = JDownloader.new(@@jdremote) if jd.nil?
+          jd.process(hash[:links], @@downloads_folder_path)
+        end
+        
+        Lade.notify(filename, 1)
       end
-    
-      ListFile.add_and_save(@@already_downloaded_list_path, module_name+":"+hash[:reference])
+      
+      if (!from_queue)
+        ListFile.add_and_save(@@already_downloaded_list_path, module_name+":"+hash[:reference])
+      end
     }
   end
   
@@ -320,7 +358,7 @@ class Lade
         begin
           File.delete("#{@@log_folder_path}#{file}")
         rescue StandardError => e
-          puts e.to_s
+          puts PrettyError.new("Couldn't delete log file.", e)
         end
       end
     }
@@ -367,7 +405,7 @@ class Lade
         puts "#{filename} just finished downloading. Processing downloads..."
         
         if (!filename.end_with?(".zip") && !filename.end_with?(".rar") && !filename.end_with?(".torrent"))
-          Lade.notify_smartphone(filename)
+          Lade.notify(filename, 2)
         end
       end
       
@@ -403,7 +441,7 @@ class Lade
               |a_file|
               # Skip folders as they have no indication of download status
               # Skip incomplete files
-              if (!File.directory?(a_file) && File.extname(downloaded_file) != ".part")
+              if (!File.directory?(a_file) && File.extname(a_file) != ".part")
                 to_move << a_file
               end
             }
@@ -417,9 +455,8 @@ class Lade
               File.rename(source, @@downloads_folder_path+new_name)
               puts "'#{source}' moved to '#{@@downloads_folder_path}'"
             rescue StandardError => e
-              puts e.backtrace.first
-              puts e.to_s
-              puts "Couldn't move '#{source}' to '#{@@downloads_folder_path}'"
+              msg = "Couldn't move '#{source}' to '#{@@downloads_folder_path}'"
+              puts PrettyError.new(msg, e)
             end
           }
         }
@@ -462,8 +499,7 @@ class Lade
             moved << "#{torrent}:#{Time.now.to_i}:0"
             puts "'#{torrent}' moved to '#{@@torrent_autoadd_dir}'"
           rescue StandardError => e
-            puts "Couldn't move #{torrent}"
-            puts e.to_s
+            puts PrettyError.new("Couldn't move #{torrent}", e)
           end
         }
         
@@ -486,7 +522,7 @@ class Lade
             no_extension = archive.gsub(/(\.part\d+)?\.rar$/i, "").gsub(/\.zip$/i, "")
             extraction_folder = @@downloads_folder_path+no_extension
             
-            Lade.notify_smartphone(no_extension)
+            Lade.notify(no_extension, 2)
             
             # remove all related .rar files from downloads folder
             (Dir.entries @@downloads_folder_path).each { |file|
@@ -522,7 +558,7 @@ class Lade
               Dir.delete(extraction_folder)
               puts "Folder '#{extraction_folder.split("/").last}' removed."
             rescue StandardError => e
-              puts "Couldn't delete temporary extraction folder #{extraction_folder}."
+              puts PrettyError.new("Couldn't delete temporary extraction folder #{extraction_folder}.", e)
             end
           end
         }
@@ -581,7 +617,7 @@ class Lade
   
   def self.main
     if (!Lade.prep_directories)
-      puts "Couldn't continue"
+      puts "Couldn't continue."
       return
     end
     
