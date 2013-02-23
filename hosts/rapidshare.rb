@@ -9,7 +9,7 @@ class Rapidshare
 		urls.each {
 			|url|
 			
-			next if url.match(/http\:\/\/(?:www\.)?rapidshare\.com\/files\/\d+?\/.*?/).nil?
+			next if url.match(/https?\:\/\/(?:www\.)?rapidshare\.com\/files\/\d+?\/.*?/).nil?
 			
 			t = url.split("files/")[1].split("/")
 			ids << t[0]
@@ -20,8 +20,8 @@ class Rapidshare
 	end
 	
 	def self.check_files(ids, filenames)
-		raise StandardError("Rapidshare: IDs and filenames do not correspond.") unless ids.count == filenames.count
-		raise StandardError("Rapidshare: No IDs given.") if ids.empty?
+		raise StandardError.new("Rapidshare: IDs and filenames do not correspond.") unless ids.count == filenames.count
+		raise StandardError.new("Rapidshare: No IDs given.") if ids.empty?
 		
 		request_url = @@api_url+"checkfiles&files="+ids.join(",")+"&filenames="+filenames.join(",")
 		
