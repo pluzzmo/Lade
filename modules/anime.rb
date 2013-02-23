@@ -137,7 +137,7 @@ class Anime
 			end
 		}
 		
-		return result
+		result
 	end
 	
 	def self.description
