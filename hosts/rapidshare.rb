@@ -16,12 +16,11 @@ class Rapidshare
 			filenames << t[1]
 		}
 		
-		check_files(ids, filenames)
+		check_files(ids, filenames) unless ids.empty? && filenames.empty?
 	end
 	
 	def self.check_files(ids, filenames)
 		raise StandardError.new("Rapidshare: IDs and filenames do not correspond.") unless ids.count == filenames.count
-		raise StandardError.new("Rapidshare: No IDs given.") if ids.empty?
 		
 		request_url = @@api_url+"checkfiles&files="+ids.join(",")+"&filenames="+filenames.join(",")
 		

@@ -39,12 +39,12 @@ class Nyaa
 		  	|id, name|
 		  	
 		  	break if remaining < 1
-		  	result << {:type => 0,
-			  	:links => ["http://www.nyaa.eu/?page=download&tid="+(id.to_s)],
-			  	:filenames => [name+".torrent"],
-			  	:file => name+".torrent",
-			  	:reference => id.to_s
-		  	}
+		  	
+		  	file = {
+			  	:download => "http://www.nyaa.eu/?page=download&tid="+(id.to_s),
+			  	:filename => name+".torrent"
+			  }
+		  	result << {:files => [file], :reference => id.to_s}
 		  	
 		  	remaining = remaining - 1
 	  	}
@@ -114,13 +114,12 @@ class Nyaa
 		
 		name = page.scan(/class=\"tinfotorrentname\">(.*?)<\/td/im).flatten.first
 		
-		[{
-			:type => 0,
-			:links => ["http://www.nyaa.eu/?page=download&tid="+reference],
-			:filenames => [name+".torrent"],
-			:file => name+".torrent",
-			:reference => reference
-		}]
+		file = {
+			:download => "http://www.nyaa.eu/?page=download&tid="+reference,
+			:filename => name+".torrent"
+		}
+		
+		[{:files => [file], :reference => reference}]
 	end
 	
 	def self.settings_notice

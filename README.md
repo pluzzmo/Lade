@@ -22,6 +22,13 @@ Navigate to where you want Lade's folder created, then
 `ruby process.rb stop`, then delete Lade's folder
 
 #####Changelog
+######1.1.1
+- Changed the way Lade and modules exchange links. (see Template to understand the new method)
+	- Moved huge part of download mechanism to Lade instead of the modules
+	- Modules are easier to understand/write as a result
+	- Cleaner code
+- Updated official modules accordingly
+
 ######1.1
 - Added Growl notifications! (needs gem *ruby_gntp* + see settings to set it up)
 - You can now configure Lade to wait for your confirmation before starting downloads.

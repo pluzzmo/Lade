@@ -127,6 +127,43 @@ class LinkScanner
 		
 		found.flatten.compact.uniq
 	end
+	
+	def self.get(links_of_interest)
+		begin
+			Lade.load_hosts
+			
+			groups = []
+			groups += Rapidshare.check_urls(links_of_interest) || []
+			groups += PutLocker.check_urls(links_of_interest) || []
+			groups += GameFront.check_urls(links_of_interest) || []
+			
+			groups
+		rescue StandardError => e
+			puts PrettyError.new("Couldn't check the given links.", e, true)
+			nil
+		end
+	end
+	
+	def self.scan_and_get(text)
+		text = text + "\n" + LinkScanner.scan_for_zdoox_links(text).join("\n")
+		links = LinkScanner.scan_for_rs_links(text)
+		links += LinkScanner.scan_for_gf_links(text)
+		links += LinkScanner.scan_for_pl_links(text)
+		
+		LinkScanner.get(links)
+	end
+	
+	def self.get_download_link(file)
+		result = catch(:stop) {
+			throw(:stop) if file[:url].nil? || file[:url].empty?
+			host = PutLocker if file[:url].include?("putlocker.com")
+			host = GameFront if file[:url].include?("gamefront.com")
+			
+			throw(:stop) if !host
+			
+			host.get_download_link(file)
+		}
+	end
 end
 
 class Helper

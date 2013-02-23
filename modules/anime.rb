@@ -35,18 +35,11 @@ class Anime
 
 			should_download = to_download.include?(name)
 			old_release = already_downloaded.include?(item[2]) || anime_cache.include?(item[2])
-			# incomplete = !((Time.now - time_uploaded > 1800) || time_uploaded.nil?)
 			
-			if (should_download && !old_release)# && !incomplete)
-				result << {:type => 0,
-					:links => ["http://tentaclenoises.co.uk"+item[1]],
-					:filenames => [item[2]],
-					:file => item[2],
-					:reference => item[2]}
-
+			if (should_download && !old_release)
+				file = {:download => "http://tentaclenoises.co.uk"+item[1], :filename => item[2]}
+				result << {:files => [file], :reference => item[2]}
 				remaining = remaining - 1
-			#elsif (should_download && incomplete)
-			#	puts "* Might be incomplete, will try later."
 			end
 
 			break if remaining < 1
@@ -129,11 +122,8 @@ class Anime
 			|item|
 
 			if (reference == item[2])
-				result << {:type => 0,
-					:links => ["http://tentaclenoises.co.uk"+item[1]],
-					:filenames => [item[2]],
-					:file => item[2],
-					:reference => item[2]}
+				file = {:download => "http://tentaclenoises.co.uk"+item[1], :filename => item[2]}
+				result << {:files => [file], :reference => item[2]}
 			end
 		}
 		
@@ -146,9 +136,5 @@ class Anime
 	
 	def self.broken?
 		false
-	end
-
-	def self.update_url
-		nil
 	end
 end

@@ -50,7 +50,7 @@
 		- @queue.each do |queue_item|
 			.download-confirm
 				%p
-					%span.filename #{queue_item[:file]}
+					%span.filename #{queue_item[:name] || queue_item[:files].first[:filename]}
 					%span.close
 						%a{:href => "/queue/remove/"+queue_item[:reference]} x
 					%span.info

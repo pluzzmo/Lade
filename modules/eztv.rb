@@ -70,13 +70,8 @@ class Eztv
 					if (link.nil?)
 						puts "Couldn't get .torrent!"
 					else
-						result << {
-							:type => 0,
-							:links => [link],
-							:filenames => [name+".torrent"],
-							:file => name+".torrent",
-							:reference => reference
-						}
+						file = {:download => link, :filename => name+".torrent"}
+						result << {:files => [file], :reference => reference}
 						
 						remaining = remaining - 1
 					end
@@ -107,7 +102,6 @@ class Eztv
 			}.max
 			
 			if (current_highest_id < 41000)
-				puts "DEBUG: #{page}"
 				raise StandardError.new("Eztv module couldn't get a reference episode ID and was unable to tell which torrents are new.")
 			end
 		}
@@ -190,14 +184,8 @@ class Eztv
 				break if (!link.nil?)
 			}
 			
-			
-			result << {
-				:type => 0,
-				:links => [link],
-				:filenames => [name+".torrent"],
-				:file => name+".torrent",
-				:reference => ref
-			} unless link.nil?
+			file = {:download => link, :filename => name+".torrent"}
+			result << {:files => [file], :reference => ref} unless link.nil?
 		}
 		
 		result

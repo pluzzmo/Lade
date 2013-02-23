@@ -9,25 +9,32 @@ class Template
 	
 	def self.run(to_download, already_downloaded, max) # => Array
 		##
-		# Return an Array of Hashes containing the links to download.
+		# Return an Array of Hashes containing the groups of links to download.
 		#
 		# Hash structure:
 		# {
-		# 	# (:type) Type of links; 0 = direct, 10 = for jDownloader
-		# 	:type => 0,
-		# 	# (:links) Array of String: Download link for each file. (e.g. multiple links if it's a multipart release) (NOT mirrors)
-		# 	:links => [link1, link2],
-		# 	# (:filenames) Array of String: Name of each file. Same number as :links
-		# 	:filenames => [filename1, filename2],
-		# 	# (:file) String: Name of the whole release, or name of multipart files without extension
-		# 	:file => filename,
+		# 	# (:name) String: Name of the release or name of multipart files without extension. OPTIONAL
+		# 	:name => name,
+		# 	# (:files) Array of Hashes: the hashes of the files you want to download
+		# 	:files => [file1, file2],
 		# 	# (:reference) String: reference of this item for later identification. (e.g. torrent id, permalink, etc.)
 		# 	:reference => reference
+		# }
+		#
+		#
+		# File Hash structure (for :files)
+		# {
+		# 	# (:download) String: Direct URL for download (will be used in wget)
+		#   :download => directlink,
+		#   # (:filename) String: File name
+		#   :filename => filename
 		# }
 		#
 		#- Use the parameters to identify what the user wants downloaded (to_download),
 		#  what was already downloaded (already_downloaded) and the maximum number
 		#  of releases to download (max).
+		#- The LinkScanner class (helper.rb) already has helper methods for processing
+		#  links from Rapidshare, GameFront, PutLocker, etc. that you should use.
 		#
 		# => Parameters:
 		#    - to_download (ListFile [see helper.rb]): the settings file that was filled in
@@ -47,17 +54,14 @@ class Template
 		items = [] # fetch a list of what's available on the website
 		
 		items.each {
-			|release_name, reference, link, filename|
+			|release_name, reference, directlink, filename|
 			
 			should_download = to_download.include?(release_name)
 			old_release = already_downloaded.include?(reference)
 			
 			if (should_download && !old_release)
-				result << {:type => 0,
-					:links => [link],
-					:filenames => [filename],
-					:file => filename,
-					:reference => reference }
+				file = {:download => directlink, :filename => filename}
+				result << {:files => [file], :reference => reference, :name => release_name}
 
 				remaining = remaining - 1
 			end
@@ -76,7 +80,7 @@ class Template
 	
 	def self.update_cache # => none
 		##
-		# Called when run(a,b,c) returns an empty array.
+		# Called when run(a,b,c) returns an empty array (no new downloads).
 		##
 	end
 	
@@ -116,20 +120,25 @@ class Template
 	
 	def self.download_on_demand(reference) # => Array
 		##
-		# Return an Array of Hashes containing the links to download.
+		# Return an Array of Hashes containing the groups of links to download.
 		#
 		# Hash structure:
 		# {
-		# 	# (:type) Type of links; 0 = direct, 10 = for jDownloader
-		# 	:type => 0,
-		# 	# (:links) Array of String: Download link for each file. (e.g. multiple links if it's a multipart release) (NOT mirrors)
-		# 	:links => [link1, link2],
-		# 	# (:filenames) Array of String: Name of each file. Same number as :links
-		# 	:filenames => [filename1, filename2],
-		# 	# (:file) String: Name of the whole release, or name of multipart files without extension
-		# 	:file => filename,
+		# 	# (:name) String: Name of the release or name of multipart files without extension. OPTIONAL
+		# 	:name => name,
+		# 	# (:files) Array of Hashes: the hashes of the files you want to download
+		# 	:files => [file1, file2],
 		# 	# (:reference) String: reference of this item for later identification. (e.g. torrent id, permalink, etc.)
 		# 	:reference => reference
+		# }
+		#
+		#
+		# File Hash structure (for :files)
+		# {
+		# 	# (:download) String: Direct URL for download (will be used in wget)
+		#   :download => directlink,
+		#   # (:filename) String: File name
+		#   :filename => filename
 		# }
 		#
 		#- Use the reference String to identify what the user wants to download,

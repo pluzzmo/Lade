@@ -68,18 +68,6 @@ class Lade
     true
   end
   
-  def self.is_already_running
-    script_filename = File.expand_path(__FILE__).to_s.split("/").last
-    processes = `ps ax | grep #{script_filename}`
-    
-    processes = processes.lines.select { |process|
-      process =~ Regexp.new(".*ruby.*"+script_filename.gsub(".", "\\."))
-    }
-    
-    return true if processes.count > 1
-    return false
-  end
-  
   def self.concurrent_downloads_count
     processes = `ps ax | grep '\\\-\\\-dejunk'`
     releases_downloading = []
@@ -100,7 +88,7 @@ class Lade
       }
     }
     
-    return releases_downloading.uniq.count
+    releases_downloading.uniq.count
   end
   
   def self.notify(filename, action_type)
@@ -227,7 +215,7 @@ class Lade
     
     
     # Now the main method of the module
-    links = nil
+    result = nil
     to_download = ListFile.new(@@config_folder_path+module_name.downcase)
     already_downloaded = ListFile.new(@@already_downloaded_list_path)
     already_downloaded = already_downloaded.list.collect {
@@ -237,7 +225,7 @@ class Lade
     }.compact
 
     begin
-      links = module_class.run(to_download, already_downloaded, max).flatten.compact
+      result = module_class.run(to_download, already_downloaded, max).flatten.compact
     rescue StandardError => e
       puts PrettyError.new(nil, e)
       throw :reason, "There was a problem running the module #{module_name}."
@@ -245,7 +233,7 @@ class Lade
     
     # Update the module's cache
     begin
-      if links.empty? && module_class.respond_to?("update_cache")
+      if result.empty? && module_class.respond_to?("update_cache")
         module_class.update_cache
         
         # Remove useless entries in the 'downloaded' list now that the cache is up to date
@@ -261,9 +249,9 @@ class Lade
       puts PrettyError.new(nil, e)
       throw :reason, "Module #{module_name} had a problem updating its cache."
     end
+    
 
-
-    Lade.start_downloads(module_name.downcase, links)
+    Lade.start_downloads(module_name.downcase, result)
   end
   
   def self.available_hosts
@@ -287,50 +275,50 @@ class Lade
     }
   end
   
-  def self.start_downloads(module_name, links, from_queue = false)
-    links.each {
+  def self.start_downloads(module_name, groups, from_queue = false)
+    groups.each {
       |hash|
 
-      filename = hash[:file] || hash[:filenames].first
-      filename = filename.gsub(/\.((part\d+\.)?rar|zip|torrent)$/, "")
+      firstfile = hash[:files].first
+      group_name = hash[:name] || firstfile[:filename] || firstfile[:download].split("/").last
+      group_name = group_name.gsub(/\.((part\d+\.)?rar|zip|torrent)$/, "")
       
       if (@@require_confirmation && !from_queue)
         # add to the queue so that Lade doesn't start the download until it gets confirmation
-        queue = YAMLFile.new(@@queue_path)
         hash[:module] = module_name
-        queue << hash
-        puts "'#{hash[:file]}' added to queue and will require confirmation before starting download"
-        Lade.notify(filename, 3)
+        hash[:name] = group_name
+        YAMLFile.new(@@queue_path) << hash
+        puts "'#{group_name}' added to queue and will require confirmation before starting download."
+        Lade.notify(group_name, 3)
       else
-        if (from_queue) # refresh the links if needed
-          new_hash = catch(:refresh) {
-            begin
-              throw(:refresh, nil) if hash[:module].nil?
-              load @@modules_folder_path+hash[:module]+".rb"
-              the_class = eval("#{hash[:module].capitalize}")
-              throw(:refresh, nil) unless the_class.respond_to?("download_confirmed")
-              r = the_class.download_confirmed(hash[:reference])
-              throw(:refresh, r) unless r.nil?
-            rescue StandardError => e
-              puts PrettyError.new("Couldn't start download from queue the usual way.", e)
-              throw(:refresh, false)
-            end
-          }
-        end
-        
-        hash = new_hash if new_hash
-        
-        hash[:links].each_index {
-          |i|
-          self.start_download(hash[:links][i], hash[:filenames][i])
+        links = hash[:files].collect {
+          |file|
+          
+          begin
+            filename = file[:filename] || file[:download].split("/").last
+            directlink = file[:download] || LinkScanner.get_download_link(file)
+            
+            raise StandardError.new if directlink.nil?
+            
+            # give files a more relevant name if available/needed
+            filename = filename.gsub(/.*?((\.part\d+)?\.rar|\.zip)/, "#{group_name}"+'\1')
+            
+            [directlink, filename]
+          rescue StandardError => e
+            puts PrettyError.new("Couldn't get direct link for file: #{file}", e, true)
+            nil
+          end
+        }.compact
+
+        links.each {
+          |directlink, filename|
+          self.start_download(directlink, filename)
         }
         
-        Lade.notify(filename, 1)
+        Lade.notify(group_name, 1)
       end
       
-      if (!from_queue)
-        ListFile.add_and_save(@@already_downloaded_list_path, module_name+":"+hash[:reference])
-      end
+      ListFile.add_and_save(@@already_downloaded_list_path, module_name+":"+hash[:reference])
     }
   end
   
