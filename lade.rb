@@ -19,7 +19,6 @@ class Lade
   @@path = File.join(File.dirname(__FILE__), *%w[/])
   
   load @@path+"helper.rb"
-  load @@path+"jdownloader.rb"
   load @@path+"updater.rb"
 
   @@config_folder_path = @@path+"config/"
@@ -40,7 +39,6 @@ class Lade
     @@max_concurrent_downloads = 99 if @@max_concurrent_downloads == 0
     @@extract = @@config["extract"]
     @@require_confirmation = @@config["require_confirm"]
-    @@jdremote = @@config["jdremote"]
     @@torrent_autoadd_dir = @@config["torrent_autoadd_dir"] || ""
     @@torrent_downloads_dir = @@config["torrent_downloads_dir"] || ""
     
@@ -290,30 +288,42 @@ class Lade
   end
   
   def self.start_downloads(module_name, links, from_queue = false)
-    jd = nil
-    
     links.each {
       |hash|
-      
+
       filename = hash[:file] || hash[:filenames].first
       filename = filename.gsub(/\.((part\d+\.)?rar|zip|torrent)$/, "")
       
       if (@@require_confirmation && !from_queue)
+        # add to the queue so that Lade doesn't start the download until it gets confirmation
         queue = YAMLFile.new(@@queue_path)
+        hash[:module] = module_name
         queue << hash
         puts "'#{hash[:file]}' added to queue and will require confirmation before starting download"
         Lade.notify(filename, 3)
       else
-        # types: 0 = directlink, 10 = for jdownloader
-        if (hash[:type] == 0)
-          hash[:links].each_index {
-            |i|
-            self.start_download(hash[:links][i], hash[:filenames][i])
+        if (from_queue) # refresh the links if needed
+          new_hash = catch(:refresh) {
+            begin
+              throw(:refresh, nil) if hash[:module].nil?
+              load @@modules_folder_path+hash[:module]+".rb"
+              the_class = eval("#{hash[:module].capitalize}")
+              throw(:refresh, nil) unless the_class.respond_to?("download_confirmed")
+              r = the_class.download_confirmed(hash[:reference])
+              throw(:refresh, r) unless r.nil?
+            rescue StandardError => e
+              puts PrettyError.new("Couldn't start download from queue the usual way.", e)
+              throw(:refresh, false)
+            end
           }
-        elsif (hash[:type] == 10)
-          jd = JDownloader.new(@@jdremote) if jd.nil?
-          jd.process(hash[:links], @@downloads_folder_path)
         end
+        
+        hash = new_hash if new_hash
+        
+        hash[:links].each_index {
+          |i|
+          self.start_download(hash[:links][i], hash[:filenames][i])
+        }
         
         Lade.notify(filename, 1)
       end

@@ -438,21 +438,22 @@ get '/queue/start/:ref' do
 	file = YAMLFile.new(@@path+"config/queue")
 	queue = file.value
 	reference = params[:ref]
-	to_start = []
-	
+	to_start = nil
 	if (queue)
 		queue = queue.delete_if {
 			|hash|
 			if (hash[:reference] == reference)
-				to_start << hash
+				to_start = hash
 				true
 			else
 				false
 			end
 		}
-	
-		Lade.start_downloads("", to_start, true)
-		file.overwrite(queue)
+		
+		if (to_start)
+			Lade.start_downloads(to_start[:module], [to_start], true)
+			file.overwrite(queue)
+		end
 	end
 	
 	redirect to("/")
