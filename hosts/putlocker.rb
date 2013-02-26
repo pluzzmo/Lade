@@ -98,15 +98,14 @@ class PutLocker
 		directlink = nil
 		
 		Helper.attempt(3) {
-			full_url = "http://www.putlocker.com/file/"+file[:id]
-			
 			http = Net::HTTP.new("www.putlocker.com", 80)
 			data = "hash=#{file[:hash]}&confirm=Continue as Free User"
 			result = http.send_request('POST', "/file/"+file[:id], data, nil)
 			
+			
 			almost_directlink = result.body.scan(/<a href=\"(\/get_file.*?)\">Download File<\/a>/im).flatten.first
 			
-			if (!almost_directlink.start_with?("/get_file.php?"))
+			if (!almost_directlink || !almost_directlink.start_with?("/get_file.php?"))
 				raise StandardError.new("Error while getting the direct link, script needs update ?")
 			end
 			
@@ -116,7 +115,7 @@ class PutLocker
 
 		if ((directlink.nil? || directlink.empty?) && !last_time)
 			puts "Trying again from start..."
-			directlink = self.get_download_link(self.check_file(full_url), yes)
+			directlink = self.get_download_link(self.check_file(file[:url]), yes)
 		elsif ((directlink.nil? || directlink.empty?) && last_time)
 			puts "Couldn't get direct link... skipping."
 		end
