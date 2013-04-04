@@ -241,7 +241,7 @@ class Shows
 	end
 	
 	def self.broken?
-		false
+		true
 	end
 	
 	def self.best_group(file_groups)

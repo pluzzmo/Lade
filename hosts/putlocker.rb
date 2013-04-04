@@ -115,7 +115,7 @@ class PutLocker
 
 		if ((directlink.nil? || directlink.empty?) && !last_time)
 			puts "Trying again from start..."
-			directlink = self.get_download_link(self.check_file(file[:url]), yes)
+			directlink = self.get_download_link(self.check_file(file[:url]), true)
 		elsif ((directlink.nil? || directlink.empty?) && last_time)
 			puts "Couldn't get direct link... skipping."
 		end

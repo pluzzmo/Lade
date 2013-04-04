@@ -19,43 +19,48 @@ class GameFront
 	end
 
 	def self.check_file(url)
-		valid = catch(:valid) {
-			page, cookie = nil
-			
-			id = url.scan(/\/files\/(\d{8})/im).flatten.first
-			throw(:valid) if id.nil?
-			
-			Helper.attempt_and_raise(3) {
-				http = Net::HTTP.new("www.gamefront.com")
-				req = Net::HTTP::Get.new("/files/#{id}")
-				req["User-Agent"] = @@user_agent
-				resp = http.request(req)
-				page = resp.body
-				cookie = resp["set-cookie"]
-				throw(:valid) if (resp.code.to_i != 200)
-			}
-
-			filename = page.scan(/<dt>File Name:<\/dt>\s*<dd>(?:<span\stitle=\")?(.*?)(?:\".*?)?<\/dd>/im).flatten.first
-			throw(:valid) if id.nil?
-			
-			size = page.scan(/<dt>File Size:<\/dt>\s*<dd>(.*?)<\/dd>/im).flatten.first
-			throw(:valid) if id.nil?
-			
-			noextension = filename.gsub(/#{"\\"+File.extname(filename)}$/, "")
-			if noextension.match(/\.part\d+$/)
-				noextension = noextension.gsub(/#{"\\"+File.extname(noextension)}$/, "")
-			end
-			
-			{
-				:url => url,
-				:id => id,
-				:cookie => cookie,
-				:filename => filename,
-				:noextension => noextension,
-				:size => Helper.to_bytes(size)
-			}
-		}
+		valid = nil
 		
+		Helper.attempt(2) {
+			valid = catch(:valid) {
+				page, cookie = nil
+				
+				id = url.scan(/\/files\/(\d{8})/im).flatten.first
+				throw(:valid) if id.nil?
+				
+				Helper.attempt_and_raise(3) {
+					http = Net::HTTP.new("www.gamefront.com")
+					req = Net::HTTP::Get.new("/files/#{id}")
+					req["User-Agent"] = @@user_agent
+					resp = http.request(req)
+					page = resp.body
+					cookie = resp["set-cookie"]
+					throw(:valid) if (resp.code.to_i != 200)
+				}
+	
+				filename = page.scan(/<dt>File Name:<\/dt>\s*<dd>(?:<span\stitle=\")?(.*?)(?:\".*?)?<\/dd>/im).flatten.first
+				throw(:valid) if id.nil?
+				
+				size = page.scan(/<dt>File Size:<\/dt>\s*<dd>(.*?)<\/dd>/im).flatten.first
+				throw(:valid) if id.nil?
+				
+				noextension = filename.gsub(/#{"\\"+File.extname(filename)}$/, "")
+				if noextension.match(/\.part\d+$/)
+					noextension = noextension.gsub(/#{"\\"+File.extname(noextension)}$/, "")
+				end
+				
+				{
+					:url => url,
+					:id => id,
+					:cookie => cookie,
+					:filename => filename,
+					:noextension => noextension,
+					:size => Helper.to_bytes(size)
+				}
+			}
+			
+			raise StandardError.new("Dead link? Trying again to make sure...") if valid.nil?
+		}
 		
 		puts "#{url} - Dead link" if valid.nil?
 		nil || valid

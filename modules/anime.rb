@@ -1,44 +1,53 @@
 class Anime
 	@@anime_cache_path = File.join(File.dirname(__FILE__), *%w[../cache/anime])
 	
+	def self.items_for_dir(path = "/wat/Anime/")
+		return [] unless path.start_with?("/wat/Anime/") && path.end_with?("/")
+		
+		result = []
+		tentaclenoises = (open "http://tentaclenoises.co.uk"+path).read
+		items = tentaclenoises.scan(/\<a\shref\=\"(.*?)\"\>(.*?)\<\/a\>/im)
+		
+		items.each {
+			|item|
+			
+			next if item.last == "[To Parent Directory]"
+			
+			if (item.first.end_with?("/"))
+				result = result + self.items_for_dir(item.first)
+			else
+				result << [item.first, item.last]
+			end
+		}
+		
+		result
+	end
+	
 	def self.run(to_download, already_downloaded, max)
 		result = []
 		remaining = max
 		
-		tentaclenoises = (open "http://tentaclenoises.co.uk/wat/Anime/").read
-		items = tentaclenoises.scan(/\<br\>(.*?)\s\d+?\s\<a\shref\=\"(.*?)\"\>(.*?)\<\/a\>/im)
+		items = self.items_for_dir
 		
 		anime_cache = ListFile.new(@@anime_cache_path)
 		
 		items.each {
 			|item|
 			
-			puts "Trying #{item[2]}..."
-			
-			# Get the date the file was uploaded
-			begin
-				datetime = item[0].gsub("<br>", "").split(" ")
-				datetime[0] = datetime[0].split("/")
-				datetime[0] = datetime[0].insert(1, datetime[0].shift).join("/")
-				datetime = datetime.join(" ")
-				
-				time_uploaded = DateTime.parse(datetime+" +0800").to_time
-			rescue Exception => e
-				puts e.to_s
-			end
+			puts "Trying #{item.last}..."
 
 			# Get the name
-			name = item[2]
+			name = item.last
 			name = name.gsub(/\[.*?\]/, "") # remove checksums, resolution and fansub name
 			name = name.gsub(/(\.mkv)|(\.avi)|(\.mp4)$/, "") # remove extension
 			name = name.gsub("_", " ").gsub(/\s\-\s.*?$/, "").strip
 
 			should_download = to_download.include?(name)
-			old_release = already_downloaded.include?(item[2]) || anime_cache.include?(item[2])
+			old_release = already_downloaded.include?(item.last) || anime_cache.include?(item.last)
 			
 			if (should_download && !old_release)
-				file = {:download => "http://tentaclenoises.co.uk"+item[1], :filename => item[2]}
-				result << {:files => [file], :reference => item[2]}
+				file = {:download => "http://tentaclenoises.co.uk"+item.first, :filename => item.last}
+				result << {:files => [file], :reference => item.last}
 				remaining = remaining - 1
 			end
 
@@ -55,21 +64,22 @@ class Anime
 	end
 	
 	def self.update_cache
-		tentaclenoises = (open "http://tentaclenoises.co.uk/wat/Anime/").read
-		items = tentaclenoises.scan(/\d+?\s\<a\shref\=\".*?\"\>(.*?)\<\/a\>/im).flatten.uniq
+		items = self.items_for_dir.collect {
+			|item|
+			item.last
+		}
 		
 		ListFile.overwrite(@@anime_cache_path, items)
 	end
 	
 	def self.settings_notice
-		tentaclenoises = (open "http://tentaclenoises.co.uk/wat/Anime/").read
-		items = tentaclenoises.scan(/\<br\>(.*?)\s\d+?\s\<a\shref\=\"(.*?)\"\>(.*?)\<\/a\>/im)
+		items = self.items_for_dir
 		
 		names = items.collect {
 			|item|
 			
 			# Get the name
-			name = item[2]
+			name = item.last
 			name = name.gsub(/\[.*?\]/, "") # remove checksums, resolution and fansub name
 			name = name.gsub(/(\.mkv)|(\.avi)|(\.mp4)$/, "") # remove extension
 			name = name.gsub("_", " ").gsub(/\s\-\s.*?$/, "").strip
@@ -98,32 +108,23 @@ class Anime
 	end
 	
 	def self.on_demand
-		result = []
-		
-		tentaclenoises = (open "http://tentaclenoises.co.uk/wat/Anime/").read
-		items = tentaclenoises.scan(/\<br\>(.*?)\s\d+?\s\<a\shref\=\"(.*?)\"\>(.*?)\<\/a\>/im)
-		
-		items.each {
+		return self.items_for_dir.collect {
 			|item|
-
-			result << [item[2], item[2]]
+			[item.last, item.last]
 		}
-		
-		return result
 	end
 	
 	def self.download_on_demand(reference)
 		result = []
 
-		tentaclenoises = (open "http://tentaclenoises.co.uk/wat/Anime/").read
-		items = tentaclenoises.scan(/\<br\>(.*?)\s\d+?\s\<a\shref\=\"(.*?)\"\>(.*?)\<\/a\>/im)
+		items = self.items_for_dir
 				
 		items.each {
 			|item|
 
-			if (reference == item[2])
-				file = {:download => "http://tentaclenoises.co.uk"+item[1], :filename => item[2]}
-				result << {:files => [file], :reference => item[2]}
+			if (reference == item.last)
+				file = {:download => "http://tentaclenoises.co.uk"+item.first, :filename => item.last}
+				result << {:files => [file], :reference => item.last}
 			end
 		}
 		
