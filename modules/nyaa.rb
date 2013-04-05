@@ -27,9 +27,24 @@ class Nyaa
 				search_result = open(@@base_search_url+CGI.escape(query)).read.to_s
 			}
 			
-			torrent_ids = search_result.scan(/torrentinfo\&#38;tid\=(\d+)\"\>(.*?)\<\//im).uniq.collect {
+			torrent_ids = search_result.scan(/torrentinfo\&#38;tid\=(\d+)\"\>(.*?)\<\//im).uniq
+			
+			# Nyaa redirects to torrent page if the search returns a single result
+			# - making sure we get that too
+			if (torrent_ids.empty? && search_result.match(/class\=\"viewtorrentname\"/im))
+				t_name = search_result.scan(/class\=\"viewtorrentname\"\>(.*?)\<\//im).flatten.first
+				if (t_name)
+					t_id = search_result.scan(/download\&#38;tid\=(\d+)\"/im).flatten.first
+					torrent_ids << [t_id, t_name]
+				end
+			end
+			
+			torrent_ids = torrent_ids.collect {
 	  		|id, name|
-	  		[id.to_i, CGI.unescapeHTML(name)] if (id.to_i > cache_id && !already_downloaded.include?(id))
+	  		previously_downloaded = already_downloaded.include?(id)
+	  		is_new = (id.to_i > cache_id)
+
+	  		[id.to_i, CGI.unescapeHTML(name)] if (is_new && !previously_downloaded)
 	  	}.compact.sort {
 		  	|a, b|
 		  	b.first <=> a.first
