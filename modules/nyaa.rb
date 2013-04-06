@@ -27,7 +27,7 @@ class Nyaa
 				search_result = open(@@base_search_url+CGI.escape(query)).read.to_s
 			}
 			
-			torrent_ids = search_result.scan(/torrentinfo\&#38;tid\=(\d+)\"\>(.*?)\<\//im).uniq
+			torrent_ids = search_result.scan(/(?:torrentinfo|view)\&#38;tid\=(\d+)\"\>(.*?)\<\//im).uniq
 			
 			# Nyaa redirects to torrent page if the search returns a single result
 			# - making sure we get that too
@@ -113,7 +113,7 @@ class Nyaa
 			page = open("http://www.nyaa.eu/").read.to_s
 		}
 		
-		result = page.scan(/torrentinfo\&#38;tid\=(\d+)\"\>(.*?)\<\//im).uniq.collect {
+		result = page.scan(/(?:torrentinfo|view)\&#38;tid\=(\d+)\"\>(.*?)\<\//im).uniq.collect {
 			|id, name|
 			[CGI.unescapeHTML(name), id]
 		}
@@ -124,10 +124,10 @@ class Nyaa
 	def self.download_on_demand(reference)
 		page = nil
 		Helper.attempt_and_raise(3) {
-			page = open("http://www.nyaa.eu/?page=torrentinfo&tid="+reference).read.to_s
+			page = open("http://www.nyaa.eu/?page=view&tid="+reference).read.to_s
 		}
 		
-		name = page.scan(/class=\"tinfotorrentname\">(.*?)<\/td/im).flatten.first
+		name = page.scan(/class=\"viewtorrentname\">(.*?)<\/td/im).flatten.first
 		
 		file = {
 			:download => "http://www.nyaa.eu/?page=download&tid="+reference,
