@@ -374,7 +374,7 @@ class Lade
     last_24h_timestamp = Time.now.to_i - (24*3600)
     torrent_history.list = torrent_history.list.select {
       |item|
-      name, time = item.split(":", 2)
+      time = item.split(":", 2).last
       
       ((time.to_i == 0) || (time.to_i > last_24h_timestamp))
     }
@@ -419,7 +419,7 @@ class Lade
       if (torrent_downloads_move)
         ListFile.new(@@torrent_history_path).list.each {
           |line|
-          torrent_filename, timestamp = line.split(":", 2)
+          torrent_filename = line.split(":", 2).first
           torrent_filename = torrent_filename.gsub(/\.torrent$/, "")
           
           downloaded_file = @@torrent_downloads_dir+torrent_filename
@@ -538,12 +538,16 @@ class Lade
               extension = File.extname(file)
               extensions_to_keep = [".srt", ".sub", ".idx", ".ass", ".ssa", ".iso", ".nfo", ".zip", ".rar"]
               
+              # special cleaning for files downloaded by module 'Shows'
+              one = "?_?)moc.\\:?(daerhtesaeler?_".reverse
+              cleaned_filename = file.gsub(/#{one}/im, "")
+              
               if ((extensions_to_keep.include?extension) || (File.new("#{extraction_folder}/#{file}").size >= (1024*128)) || is_directory)
                 
                 File.rename(
                 "#{extraction_folder}/#{file}",
-                "#{@@downloads_folder_path}#{file}")
-                puts "'#{file}' moved to 'Downloads'"
+                "#{@@downloads_folder_path}#{cleaned_filename}")
+                puts "'#{cleaned_filename}' moved to 'Downloads'"
                 next
               end
             

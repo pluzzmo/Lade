@@ -1,6 +1,8 @@
 class Shows
 	@@shows_cache_path = File.join(File.dirname(__FILE__), *%w[../cache/shows])
-
+	@@website = "moc.daerhtesaeler".reverse # don't attract search engines!
+	@@sm_url = "http://"+@@website+("lmx.1trap_tsop/".reverse) # sitemap url
+	
 	def self.run(to_download, already_downloaded, max)
 		result = []
 		remaining = max
@@ -16,8 +18,8 @@ class Shows
 				
 		shows_cache = ListFile.new(@@shows_cache_path)
 
-		sitemap = (open "http://www.myrls.me/sitemap.xml").read.to_s
-		releases = sitemap.scan(/\<loc\>(http\:\/\/www\.myrls\.me\/tv\/shows\/(.*?)\/)\<\/loc\>.*?\<lastmod\>(.*?)\<\/lastmod\>/im).take(50)
+		sitemap = Helper.open_uri(@@sm_url, 153600).to_s
+		releases = sitemap.scan(/<loc>(http\:\/\/#{@@website.gsub(".", "\\.")}\/tv\-shows\/(.*?)\/)<\/loc>.*?<lastmod>(.*?)<\/lastmod>/im).uniq.take(50)
 		
 		releases.each {
 			|url, release_name, lastmod|
@@ -27,7 +29,7 @@ class Shows
 			fallback = ((DateTime.parse(lastmod).strftime("%s").to_i - Time.now.to_i) > 3600*2)
 			
 			# Checking to see if it's already downloaded
-			episode_number = release_name.scan(/(.*?s\d\de\d\d(e\d\d)?)-/).flatten
+			episode_number = release_name.scan(/(.*?s\d\de\d\d(\-?e\d\d)?)-/).flatten
 			episode_number = (episode_number.empty? ? nil : episode_number.first)
 			
 			if already_downloaded.include?(release_name)
@@ -70,58 +72,86 @@ class Shows
 	end
 	
 	def self.install
-		sitemap = (open "http://www.myrls.me/sitemap.xml").read.to_s
-		releases = sitemap.scan(/\<loc\>(http\:\/\/www\.myrls\.me\/tv\/shows\/(.*?)\/)\<\/loc\>/).take(50).collect {
-			|url, release_name|
-			release_name
-		}
+		sitemap = Helper.open_uri(@@sm_url, 153600).to_s
+		releases = sitemap.scan(/<loc>http\:\/\/#{@@website.gsub(".", "\\.")}\/tv\-shows\/(.*?)\/<\/loc>/im).flatten.uniq.take(50)
 		
 		ListFile.overwrite(@@shows_cache_path, releases)
 	end
 	
 	def self.check_page_for_relevant_links(source, release_names, page_name, fallback)
-		zdoox_links_txt = LinkScanner.scan_for_zdoox_links(source).join("\n")
+		source = source.scan(/<div\sclass=\"postarea\">(.*?)<div\sclass=\"clear\"/im).flatten
+		source = source.first.gsub(/\n/, "").gsub(/<br\s?\/?>/, "").strip
+		parts = source.split(/<hr\s*?\/?>/im)
 		
-		gf_links = LinkScanner.scan_for_gf_links(source+"\n"+zdoox_links_txt)
-		gf_groups = LinkScanner.get(gf_links)
+		parts = parts[1..-1]
 		
-		pl_links = LinkScanner.scan_for_pl_links(source+"\n"+zdoox_links_txt)
-		pl_groups = LinkScanner.get(pl_links)
-
-		# skip for now, not all releases have been uploaded yet
-		# if fallback = true (page is older than 1 hour) and not all files have been uploaded, download the one with the most links anyway
-		if release_names.count > gf_groups.count && release_names.count > pl_groups.count && !fallback
-			puts "Still not uploaded... will check later..."
-			return nil
+		wanted_release = nil
+		release_names.each_index {
+			|i|
+			wanted_release = release_names[i] if release_names[i].include?("720p")
+		}
+		
+		if (wanted_release.nil?)
+			if (!fallback)
+				puts "720p version still not uploaded... will check later..."
+				return nil
+			else
+				puts "Couldn't find 720p version, falling back to anything else..."
+				wanted_release = release_names.first
+			end
 		end
 		
-		best_group = self.best_group(gf_groups+pl_groups)
-		putlocker = best_group[:files].first[:url].include?("putlocker.com") ? true : false
+		relevant_part = parts[release_names.index(wanted_release)]
+		if (!relevant_part || !relevant_part.include?(wanted_release))
+			parts.each {
+				|part|
+				relevant_part = part if part.include?(wanted_release)
+			}
+		end
 		
-		release_name = release_names.collect {
-			|rn|
-			rn if rn.downcase.include?("720p")
-		}.compact.first
+		groups = catch(:groups) {
+			links = LinkScanner.scan_for_pl_links(relevant_part)
+			groups = LinkScanner.get(links)
+			throw(:groups, groups) unless links.empty? || groups.first[:dead]
+			
+			links = LinkScanner.scan_for_bu_links(relevant_part)
+			groups = LinkScanner.get(links)
+			throw(:groups, groups) unless links.empty?
+			
+			links = LinkScanner.scan_for_gf_links(relevant_part)
+			groups = LinkScanner.get(links)
+			throw(:groups, groups) unless links.empty? || groups.first[:dead]
+			
+			throw(:groups)
+		}
 
+		raise StandardError.new("No valid links found.") if groups.nil? || groups.empty?
+		
+		best_group = groups.first
+		groups.each {
+			|group|
+			best_group = group if group[:size] > best_group[:size]
+		}
+		
 		{
 			:files => best_group[:files],
-			:name => release_name,
+			:name => wanted_release,
 			:reference => page_name
 		}
 	end
 	
 	def self.check_page_for_release_names(source, show_looking_for)
-		entry = source.scan(/\<div\sclass\=\"(?:(?:entry(?:\-content)?)|post)\"\>(.*?)\<div\sclass\=\"(?:clear|usenet)\"/im).flatten
-		
-		raise StandardError.new("Couldn't find release info") if entry.empty?
+		source = source.scan(/<div\sclass=\"postarea\">(.*?)<div\sclass=\"clear\"/im).flatten
+
+		raise StandardError.new("Couldn't find release info") if source.empty?
 		
 		# US release naming convention: show.name.S01E01
 		us_regex = Regexp.new(show_looking_for.gsub(/\./, "[\\.\\s]")+"[\\.\\s]S\\d\\dE\\d\\d.*", true)
 		# UK release naming convention: show_name.1x01
 		uk_regex = Regexp.new(show_looking_for.gsub(/\./, "[_\\s]")+"[\\.\\s]\\d\\d?.{1,2}\\d\\d.*", true)
 		
-		entry = entry[0].gsub(/\n/, "").gsub(/\<br\s?\/?\>/, "").strip
-		bolded_parts = entry.scan(/\<strong\>(.*?)\<\/strong\>/).flatten
+		source = source.first.gsub(/\n/, "").gsub(/<br\s?\/?>/, "").strip
+		bolded_parts = source.scan(/<strong>(.*?)<\/strong>/).flatten
 		release_names = []
 		
 		bolded_parts.each {
@@ -131,13 +161,9 @@ class Shows
 			release_names << part.scan(uk_regex)
 		}
 		
-		release_names = release_names.flatten.compact
-		release_names_720p = release_names.collect {
-			|rn|
-			rn if rn.downcase.include?("720p")
-		}.compact
+		release_names = release_names.flatten.uniq.compact
 		
-		raise StandardError.new("Couldn't find any relevant releases") if release_names_720p.empty?
+		raise StandardError.new("No releases are uploaded yet...") if release_names.empty?
 		
 		release_names
 	end
@@ -145,8 +171,8 @@ class Shows
 	def self.on_demand
 		result = []
 		
-		sitemap = (open "http://www.myrls.me/sitemap.xml").read.to_s
-		releases = sitemap.scan(/\<loc\>(http\:\/\/www\.myrls\.me\/tv\/shows\/(.*?)\/)\<\/loc\>.*?\<lastmod\>(.*?)\<\/lastmod\>/im).take(50)
+		sitemap = (open @@sm_url).read.to_s
+		releases = sitemap.scan(/<loc>(http\:\/\/#{@@website.gsub(".", "\\.")}\/tv\-shows\/(.*?)\/)<\/loc>.*?<lastmod>(.*?)<\/lastmod>/im).take(200)
 		
 		releases.each {
 			|url, release_name, lastmod|
@@ -158,7 +184,7 @@ class Shows
 			parts = parts.collect {
 				|word|
 				word = word.capitalize unless ["and", "of", "with", "in", "x264"].include?(word)
-				word = word.upcase if ["au", "us", "uk", "ca", "hdtv", "xvid", "pdtv"].include?(word.downcase)
+				word = word.upcase if ["au", "us", "uk", "ca", "hdtv", "xvid", "pdtv", "web", "dl"].include?(word.downcase)
 				word = word.upcase if word =~ /s\d\de\d\d/i
 				word
 			}
@@ -174,7 +200,7 @@ class Shows
 	end
 	
 	def self.download_on_demand(reference)
-		source = (open "http://www.myrls.me/tv/shows/#{CGI.escape(reference)}").read.to_s
+		source = (open "http://#{@@website}/tv-shows/#{CGI.escape(reference)}").read.to_s
 		
 		link_groups = LinkScanner.scan_and_get(source)
 		best_group = self.best_group(link_groups)
@@ -184,9 +210,24 @@ class Shows
 			|group|
 			
 			formatted_name = group[:name]+" - "+Helper.human_size(group[:size], 8)
-			host = group[:files].first[:url].include?("putlocker.com") ? "PutLocker: " : "GameFront: "
+			
+			url = group[:files].first[:url].downcase
+			host = ""
+			suffix = ""
+			
+			if (url.include?("putlocker.com"))
+				host = "PutLocker: "
+				suffix = "pl"
+			elsif (url.include?("billionuploads.com"))
+				host = "BillionUploads: "
+				suffix = "bu"
+			elsif (url.include?("gamefront.com"))
+				host = "GameFront: "
+				suffix = "gf"
+			end
+
 			formatted_name = host + formatted_name + (group == best_group ? " (recommended)" : "")
-			new_reference = "#{reference}/#{group[:name]}"
+			new_reference = "#{reference}/#{group[:name]}#{':'+suffix unless suffix.empty?}"
 			
 			if (group[:dead])
 				formatted_name = "DEAD - "+formatted_name
@@ -201,18 +242,33 @@ class Shows
 	
 	
 	def self.download_on_demand_step2(reference)
-		source = (open "http://www.myrls.me/tv/shows/#{CGI.escape(reference.first)}").read.to_s
+		source = (open "http://#{@@website}/tv-shows/#{CGI.escape(reference.first)}").read.to_s
+		reference.push(reference.pop.split(":"))
+		reference.flatten!
 		
-		link_groups = LinkScanner.scan_and_get(source)
+		link_groups = []
+		host_domain = ""
 		
-		putlocker = true
-		
+		case reference.last
+		when "pl"
+			host_domain = "putlocker.com"
+			link_groups = LinkScanner.get(LinkScanner.scan_for_pl_links(source))
+		when "bu"
+			host_domain = "billionuploads.com"
+			link_groups = LinkScanner.get(LinkScanner.scan_for_bu_links(source))
+		when "gf"
+			host_domain = "gamefront.com"
+			link_groups = LinkScanner.get(LinkScanner.scan_for_gf_links(source))
+		end
+
 		wanted_group = nil
+		
 		link_groups.each {
 			|group|
-			if (reference.last == group[:name] && !group[:dead])
+			url = group[:files].first[:url].downcase
+
+			if (reference[1] == group[:name] && url.include?(host_domain) && !group[:dead])
 				wanted_group = group
-				putlocker = group[:files].first[:url].include?("putlocker.com") ? true : false
 				break
 			end
 		}
@@ -237,11 +293,11 @@ class Shows
 	end
 	
 	def self.description
-		"Downloads US & UK TV shows from <a href=\"http://myrls.me\">MyRLS.me</a> via direct links (PutLocker/GameFront). Has most airing shows except a few obscure ones."
+		"Downloads US & UK TV shows from <a href=\"http://#{@@website}\">#{@@website}</a> via direct links (PutLocker/BillionUploads/GameFront). Has most airing shows."
 	end
 	
 	def self.broken?
-		true
+		false
 	end
 	
 	def self.best_group(file_groups)
@@ -257,11 +313,11 @@ class Shows
 			if (size_b == 0 || size_a == 0)
 				size_b <=> size_a
 			else
-				putlocker_a = group_a[:files].first[:url].include?("putlocker.com") ? true : false
-				putlocker_b = group_b[:files].first[:url].include?("putlocker.com") ? true : false
+				a_is_putlocker = group_a[:files].first[:url].downcase.include?("putlocker.com") ? true : false
+				b_is_putlocker = group_b[:files].first[:url].downcase.include?("putlocker.com") ? true : false
 				
-				if (putlocker_a != putlocker_b)
-					putlocker_a ? size_b <=> size_a+5242880 : size_b+5242880 <=> size_a
+				if (a_is_putlocker != b_is_putlocker)
+					a_is_putlocker ? size_b <=> size_a+5242880 : size_b+5242880 <=> size_a
 				else
 					size_b <=> size_a
 				end
