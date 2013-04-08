@@ -578,6 +578,11 @@ class Lade
     failure_name = archive_path+"_failed"
     tmp_log = archive_path+"_extract.log"
     
+    if File.exists?(tmp_log)
+      puts "#{no_extension} is already being extracted by another Lade process. Skipping..."
+      return 1
+    end
+    
     cmd = "unrar e '#{archive_path}' '#{extraction_folder}' > '#{tmp_log}' 2>&1"
     zip_cmd = "unzip -o '#{archive_path}' -d '#{extraction_folder}' > '#{tmp_log}' 2>&1"
     
