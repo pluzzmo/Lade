@@ -170,7 +170,7 @@ class Lade
   end
   
   def self.run_module(module_name)
-    max = @@max_concurrent_downloads - Lade.concurrent_downloads_count
+    max = @@require_confirmation ? 99 : (@@max_concurrent_downloads - Lade.concurrent_downloads_count)
     if (max < 1)
       throw :reason, "*Already at maximum concurrent downloads. Won't run module #{module_name}."
     end
