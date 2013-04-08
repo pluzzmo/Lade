@@ -1,4 +1,5 @@
 require 'yaml'
+require 'net/http'
 
 class FileConfig
 	@@path = File.join(File.dirname(__FILE__), *%w[/])
@@ -115,12 +116,16 @@ class LinkScanner
 		text.scan(/http\:\/\/(?:www\.)?putlocker\.com\/file\/[a-z\d]{16}/im).flatten.uniq
 	end
 	
+	def self.scan_for_bu_links(text)
+		text.scan(/http\:\/\/(?:www\.)?billionuploads\.com\/[a-z\d]{12}/im).flatten.uniq
+	end
+	
 	def self.scan_for_zdoox_links(text)
 		found = []
 		text.scan(/zdoox\.com\/firm\/\d+/im).uniq.flatten.collect {
 			|zdoox|
 			zdoox = zdoox.gsub("/firm/", "/firm/m1.php?id=") unless zdoox.include?("m1.php")
-			source = (open ("http://"+zdoox)).read.to_s
+			source = (open("http://"+zdoox)).read.to_s
 			links = source.scan(/NewWindow\(\'(.*?)\'/im)
 			found << links
 		}
@@ -135,6 +140,7 @@ class LinkScanner
 			groups = []
 			groups += Rapidshare.check_urls(links_of_interest) || []
 			groups += PutLocker.check_urls(links_of_interest) || []
+			groups += BillionUploads.check_urls(links_of_interest) || []
 			groups += GameFront.check_urls(links_of_interest) || []
 			
 			groups
@@ -147,6 +153,7 @@ class LinkScanner
 	def self.scan_and_get(text)
 		text = text + "\n" + LinkScanner.scan_for_zdoox_links(text).join("\n")
 		links = LinkScanner.scan_for_rs_links(text)
+		links += LinkScanner.scan_for_bu_links(text)
 		links += LinkScanner.scan_for_gf_links(text)
 		links += LinkScanner.scan_for_pl_links(text)
 		
@@ -156,13 +163,16 @@ class LinkScanner
 	def self.get_download_link(file)
 		result = catch(:stop) {
 			throw(:stop) if file[:url].nil? || file[:url].empty?
-			host = PutLocker if file[:url].include?("putlocker.com")
-			host = GameFront if file[:url].include?("gamefront.com")
+			host = PutLocker if file[:url].downcase.include?("putlocker.com")
+			host = GameFront if file[:url].downcase.include?("gamefront.com")
+			host = BillionUploads if file[:url].downcase.include?("billionuploads.com")
 			
 			throw(:stop) if !host
 			
 			host.get_download_link(file)
 		}
+		
+		result
 	end
 end
 
@@ -263,7 +273,6 @@ class Helper
 			if (tries < max_tries)
 				retry
 			else
-				puts e.backtrace.first
 				puts e.to_s
 			end
 		end
@@ -283,6 +292,27 @@ class Helper
 				raise e
 			end
 		end
+	end
+	
+	# Kinda like OpenURI's open(url), except it allows to limit fetch size
+	# Solution found @ http://stackoverflow.com/a/8597459/528645
+	def self.open_uri(url, limit = 102400)
+		uri = URI(url)
+		result = nil
+		
+		begin
+			Net::HTTP.start(uri.host, uri.port) do |http|
+				request = Net::HTTP::Get.new(uri.request_uri)
+				http.request(request) do |response|
+					result = response.instance_variable_get(:@socket).read(limit)
+					http.finish
+				end
+			end
+		rescue IOError
+			# ignore
+		end
+		
+		result
 	end
 end
 
