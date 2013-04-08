@@ -7,7 +7,7 @@
 				:src => "/js/jquery-1.8.1.min.js"}
 		:javascript
 			function add(txt) {
-				$("#list-editor").append("\n"+txt);
+				$('#list-editor').val($('#list-editor').val()+'\n'+txt);
 			}
 	%body
 		%ul#links
