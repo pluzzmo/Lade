@@ -22,13 +22,6 @@ Navigate to where you want Lade's folder created, then
 `ruby process.rb stop`, then delete Lade's folder
 
 #####Changelog
-######1.1.3
--Rewrote module Shows to use a new and much better source with PutLocker+BillionUploads+GameFront links
--Brought back BillionUploads support
--Fixed Lade trying to extract archives that are already being extracted
--Fixed 'Maximum concurrent downloads' taken into account even if Lade is set to require confirmation for downloads
--Fixed adding items to module settings' textarea sometimes not working
-
 ######1.1.2
 - Updated Shows module to inform users that it's "broken", it will start working again when MyRLS.me is back to normal (it's been down for a few days now); Use the Eztv module & torrent to get your shows in the meantime.
 - Updated Anime module to search folders in download source. Issue #1
