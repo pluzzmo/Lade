@@ -50,7 +50,7 @@ class Eztv
 				is_hd = name.downcase.include?("720p")
 				matches_setting = (hd && is_hd) || (!hd && !is_hd)
 				
-				if (name.downcase.start_with?(show) && matches_setting && !already_downloaded.include?(reference) && cache_id < ref.to_i)
+				if (name.downcase.start_with?(show) && matches_setting && !already_downloaded.include?(reference) && cache_id < reference.to_i)
 					links = item.scan(/<a\shref=\"([^\"]*?)\"\sclass=\"download_\d\"/im).flatten.uniq
 					link = nil
 					
