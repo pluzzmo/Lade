@@ -103,7 +103,7 @@ class PutLocker
 			result = http.send_request('POST', "/file/"+file[:id], data, nil)
 			
 			
-			almost_directlink = result.body.scan(/<a href=\"(\/get_file.*?)\">Download File<\/a>/im).flatten.first
+			almost_directlink = result.body.scan(/href=\"(\/get_file.*?)\".*?>Download File<\/a>/im).flatten.first
 			
 			if (!almost_directlink || !almost_directlink.start_with?("/get_file.php?"))
 				raise StandardError.new("Error while getting the direct link, script needs update ?")
