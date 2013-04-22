@@ -1,6 +1,6 @@
 class Shows
 	@@shows_cache_path = File.join(File.dirname(__FILE__), *%w[../cache/shows])
-	@@website = "moc.daerhtesaeler".reverse # don't attract search engines!
+	@@website = "sw.daerhtesaeler".reverse # don't attract search engines!
 	@@sm_url = "http://"+@@website+("lmx.1trap_tsop/".reverse) # sitemap url
 	
 	def self.run(to_download, already_downloaded, max)
