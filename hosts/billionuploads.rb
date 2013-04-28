@@ -9,7 +9,7 @@ class BillionUploads
 		urls.each {
 			|url|
 			
-			next if url.match(/http\:\/\/(?:www\.)?billionuploads\.com\/[a-z\d]{12}/im).nil?
+			next if url.nil? || url.match(/http\:\/\/(?:www\.)?billionuploads\.com\/[a-z\d]{12}/im).nil?
 			
 			files << self.check_file(url)
 		}
@@ -71,6 +71,7 @@ class BillionUploads
 		
 		grouped_files.each {
 			|group|
+			group[:host] = "BillionUploads"
 			group[:size] = 0
 			
 			group[:files].each {
@@ -88,14 +89,17 @@ class BillionUploads
 		tried_new_session = false
 		
 		Helper.attempt(2) {
-			Helper.attempt(3) {				
+			Helper.attempt(3) {
 				result = Net::HTTP.post_form(URI("http://billionuploads.com/"+file[:id]),
 				{"id" => file[:id], "rand" => file[:rand], "op" => "download2"})
 				
 				body = result.body
 				link_result = body.scan(/\<a\shref\=\"(.*?)\"\sid\=\"_tlink\"/).flatten.uniq
 				
-				raise StandardError.new("File unavailable or expired session...") if link_result.empty?
+				if link_result.empty?
+					puts "File unavailable or expired session..."
+					raise StandardError.new("File unavailable or expired session...") 
+				end
 				
 				directlink = link_result.first
 			}

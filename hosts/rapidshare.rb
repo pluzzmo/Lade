@@ -65,7 +65,7 @@ class Rapidshare
 			
 			next if added
 			
-			grouped_files << {:name => file[:noextension], :files => [file]}
+			grouped_files << {:name => file[:noextension], :files => [file], :host => "Rapidshare"}
 		}
 		
 		# mark dead links

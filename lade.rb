@@ -2,7 +2,7 @@
 ####
 ###
 ##
-# Lade v1.1
+# Lade v1.2
 class Lade
 #
 ##
@@ -30,6 +30,7 @@ class Lade
   
   @@already_downloaded_list_path = @@config_folder_path+"downloaded"
   @@torrent_history_path = @@config_folder_path+"torrent_history"
+  @@download_history_path = @@config_folder_path+"download_history"
   @@queue_path = @@config_folder_path+"queue"
   
   def self.load_config
@@ -93,9 +94,7 @@ class Lade
   
   def self.notify(filename, action_type)
     Lade.load_config
-    
-    growl_gem_available = Updater.gem_available?("ruby_gntp")
-    
+
     should_notify = [
       @@notify_on_download_start,
       @@notify_on_download_finish,
@@ -103,9 +102,8 @@ class Lade
     should_notify = should_notify && @@growl_notifications
     should_notify = should_notify && !@@growl_host.nil? && !@@growl_host.strip.empty?
     
-    if (should_notify && growl_gem_available)
+    if (should_notify)
       begin
-        require 'ruby_gntp'
         port = ((@@growl_port.nil? || @@growl_port.empty?) ? 23053 : @growl_port.to_i)
         growl = GNTP.new("Lade", @@growl_host, @@growl_password, port)
         growl.register({
@@ -138,8 +136,6 @@ class Lade
       rescue StandardError => e
         puts PrettyError.new("Couldn't send a Growl notification.", e)
       end
-    elsif (should_notify && !growl_gem_available)
-      puts "Please restart Lade through Terminal to install the required gem 'ruby_gntp'"
     end
   end
   
@@ -225,7 +221,16 @@ class Lade
     }.compact
 
     begin
-      result = module_class.run(to_download, already_downloaded, max).flatten.compact
+      if (!to_download.list.empty?)
+        result = module_class.run(to_download, already_downloaded, max).flatten.compact
+        result.each {
+          |group|
+          group[:module] = module_name
+        }
+      else
+        result = []
+        puts "Won't run module #{module_name} because its settings are empty."
+      end
     rescue StandardError => e
       puts PrettyError.new(nil, e)
       throw :reason, "There was a problem running the module #{module_name}."
@@ -234,6 +239,7 @@ class Lade
     # Update the module's cache
     begin
       if result.empty? && module_class.respond_to?("update_cache")
+        puts "No new downloads by #{module_name}, updating cache..."
         module_class.update_cache
         
         # Remove useless entries in the 'downloaded' list now that the cache is up to date
@@ -241,7 +247,7 @@ class Lade
         already_downloaded.list = already_downloaded.list.select {
           |item|
           split = item.split(":", 2)
-          split.first != module_name.downcase
+          split.first.downcase != module_name.downcase
         }
         already_downloaded.save
       end
@@ -275,15 +281,33 @@ class Lade
     }
   end
   
-  def self.start_downloads(module_name, groups, from_queue = false)
+  def self.start_downloads(module_name, groups, force_start = false)
+    # Update the download history before starting the downloads!
+    download_history = YAMLFile.new(@@download_history_path)
+    groups.each {
+      |group|
+      group[:module].capitalize!
+      download_history.value << group unless download_history.value.include?(group)
+    }
+    download_history.save
+    
     groups.each {
       |hash|
-
+      
+      # special cleaning for files downloaded by module 'Shows'
+      one = "?_?))sw|moc(.\\:?(daerhtesaeler?_".reverse
+      hash[:files] = hash[:files].collect {
+        |file|
+        file[:filename] = file[:filename].gsub(/#{one}/im, "") if file[:filename]
+        
+        file
+      }
+      
       firstfile = hash[:files].first
       group_name = hash[:name] || firstfile[:filename] || firstfile[:download].split("/").last
       group_name = group_name.gsub(/\.((part\d+\.)?rar|zip|torrent)$/, "")
       
-      if (@@require_confirmation && !from_queue)
+      if (@@require_confirmation && !force_start)
         # add to the queue so that Lade doesn't start the download until it gets confirmation
         hash[:module] = module_name
         hash[:name] = group_name
@@ -295,7 +319,7 @@ class Lade
           |file|
           
           begin
-            filename = file[:filename] || file[:download].split("/").last
+            filename = file[:name] || file[:filename] || file[:download].split("/").last
             directlink = file[:download] || LinkScanner.get_download_link(file)
             
             raise StandardError.new if directlink.nil?
@@ -318,7 +342,9 @@ class Lade
         Lade.notify(group_name, 1)
       end
       
-      ListFile.add_and_save(@@already_downloaded_list_path, module_name+":"+hash[:reference])
+      if (module_name && hash[:reference])
+        ListFile.add_and_save(@@already_downloaded_list_path, module_name.downcase+":"+hash[:reference])
+      end
     }
   end
   
@@ -379,6 +405,11 @@ class Lade
       ((time.to_i == 0) || (time.to_i > last_24h_timestamp))
     }
     torrent_history.save
+    
+    # Limit the download history list to 25 entries
+    download_history = YAMLFile.new(@@download_history_path)
+    download_history.value = download_history.value.reverse.take(25).reverse
+    download_history.save
   end
   
   def self.log
@@ -539,7 +570,7 @@ class Lade
               extensions_to_keep = [".srt", ".sub", ".idx", ".ass", ".ssa", ".iso", ".nfo", ".zip", ".rar"]
               
               # special cleaning for files downloaded by module 'Shows'
-              one = "?_?)moc.\\:?(daerhtesaeler?_".reverse
+              one = "?_?))sw|moc(.\\:?(daerhtesaeler?_".reverse
               cleaned_filename = file.gsub(/#{one}/im, "")
               
               if ((extensions_to_keep.include?extension) || (File.new("#{extraction_folder}/#{file}").size >= (1024*128)) || is_directory)

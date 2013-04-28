@@ -1,4 +1,5 @@
 require 'yaml'
+require 'json'
 require 'net/http'
 
 class FileConfig
@@ -133,7 +134,7 @@ class LinkScanner
 		found.flatten.compact.uniq
 	end
 	
-	def self.get(links_of_interest)
+	def self.get(links_of_interest) # deprecated, please use threaded version instead
 		begin
 			Lade.load_hosts
 			
@@ -150,7 +151,36 @@ class LinkScanner
 		end
 	end
 	
-	def self.scan_and_get(text)
+	def self.threaded_get(links_of_interest, additional_params = nil)
+		return Thread.new(links_of_interest) {
+			|links_of_interest|
+			
+			groups = []
+			begin
+				Lade.load_hosts
+				
+				groups += Rapidshare.check_urls(links_of_interest) || []
+				groups += PutLocker.check_urls(links_of_interest) || []
+				groups += BillionUploads.check_urls(links_of_interest) || []
+				groups += GameFront.check_urls(links_of_interest) || []
+				
+				if (additional_params)
+					groups.each {
+						|group|
+						if (group.kind_of?(Hash) && additional_params.kind_of?(Hash))
+							group.merge!(additional_params)
+						end
+					}
+				end
+			rescue StandardError => e
+				puts PrettyError.new("Couldn't check the given links.", e, true)
+			end
+			
+			Thread.current["groups"] = groups
+		}
+	end
+	
+	def self.scan_and_get(text) # deprecated, please use threaded version instead
 		text = text + "\n" + LinkScanner.scan_for_zdoox_links(text).join("\n")
 		links = LinkScanner.scan_for_rs_links(text)
 		links += LinkScanner.scan_for_bu_links(text)
@@ -158,6 +188,20 @@ class LinkScanner
 		links += LinkScanner.scan_for_pl_links(text)
 		
 		LinkScanner.get(links)
+	end
+	
+	def self.threaded_scan_and_get(text, additional_params = nil)
+		threads = []
+		
+		text = text + "\n" + LinkScanner.scan_for_zdoox_links(text).join("\n")
+		
+		# a thread for each host
+		threads << LinkScanner.threaded_get(LinkScanner.scan_for_rs_links(text), additional_params)
+		threads << LinkScanner.threaded_get(LinkScanner.scan_for_bu_links(text), additional_params)
+		threads << LinkScanner.threaded_get(LinkScanner.scan_for_gf_links(text), additional_params)
+		threads << LinkScanner.threaded_get(LinkScanner.scan_for_pl_links(text), additional_params)
+		
+		threads
 	end
 	
 	def self.get_download_link(file)
@@ -178,7 +222,9 @@ end
 
 class Helper
 	# bytes -> human readable size
-	def self.human_size(n, base)
+	def self.human_size(n, base = 8)
+		return "0" if n.nil?
+		
 		units = ["B", "KB", "MB", "GB"]
 	
 		unit = units[0]
@@ -341,7 +387,8 @@ class PrettyError
 end
 
 class YAMLFile
-	attr_reader :path, :value
+	attr_reader :path
+	attr_accessor :value
 	
 	def initialize(path)
 		@path = path
@@ -361,16 +408,25 @@ class YAMLFile
 		begin
 			array = nil
 			
-			File.open(@path, "r") do |f|
-				array = YAML.load(f.read)
+			if (File.exist?(path))
+				File.open(@path, "r") do |f|
+					array = YAML.load(f.read)
+				end
 			end
 			
 			array = [] unless array.kind_of?(Array)
-			array << new_data
+			
+			if (new_data.kind_of?(Array))
+				array = array + new_data
+			else
+				array << new_data
+			end
 			
 			File.open(@path, "w") do |f|
 				f.write(array.to_yaml)
 			end
+			
+			@value = array
 			
 			true
 		rescue StandardError => e
@@ -385,10 +441,181 @@ class YAMLFile
 				f.write(new_data.to_yaml)
 			end
 			
+			@value = new_data
+			
 			true
 		rescue StandardError => e
 			puts PrettyError.new("Error while writing to YAML file '#{@path}'", e, true)
 			false
 		end
+	end
+	
+	def save
+		self.overwrite(@value)
+	end
+end
+
+class ListSource
+	def self.info
+		{
+			"pogdesign" => {
+				:description => "If you have a <a href='http://pogdesign.co.uk/cat'>Pogdesign</a> account, you can add items from your filter list:"
+			},
+			"animecalendar" => {
+				:description => "If you have an <a href='http://animecalendar.net/'>Animecalendar</a> account, you can add items from your filter list:"
+			},
+			"imdb_watchlist" => {
+				:name => "IMDB Watchlist",
+				:description => "If you have an <a href='http://imdb.com/'>IMDB</a> account, you can add items from your watchlist.<br>Make sure your watchlist is public and that you copy the correct user ID.<br>(e.g. <i>http://www.imdb.com/user/<b>ur23317856</b>/watchlist</i>)",
+				:login_placeholder => "User ID (urXXXXXXXX)",
+				:requires_password => false
+			},
+			"rottentomatoes_boxoffice" => {
+				:name => "Box Office",
+				:description => "Add movies from Rotten Tomatoes' Box Office list:",
+				:requires_login => false,
+				:requires_password => false
+			},
+			"rottentomatoes_upcomingmovies" => {
+				:name => "Upcoming Movies",
+				:description => "Add movies from Rotten Tomatoes' Upcoming Movies list:",
+				:requires_login => false,
+				:requires_password => false
+			},
+			"rottentomatoes_upcomingdvd" => {
+			 	:name => "Upcoming DVDs",
+			 	:description => "Add movies from Rotten Tomatoes' Upcoming DVDs list:",
+			 	:requires_login => false,
+			 	:requires_password => false
+			 }
+		}
+	end
+	
+	def self.get(id, login = nil, password = nil)
+		result = nil
+		id = id.strip.downcase if id.kind_of?(String)
+		method_available = (ListSource.methods(false).include?(id) || ListSource.methods(false).include?(id.to_sym)) # Ruby 1.8.7 lists methods as strings, newer versions lists them as symbols <_<
+		
+		if (id.kind_of?(String) && (id != "get") && (id != "info") && method_available)
+			result = eval("ListSource.#{id.downcase}(login, password)")
+		else
+			result = "Unknown error!"
+		end
+		
+		result.kind_of?(Array) ? {:list => result}.to_json : {:error => result}.to_json
+	end
+	
+	def self.pogdesign(login, password)
+		if login.nil? || password.nil? || login.empty? || password.empty?
+			return "No login/password provided."
+		end
+		
+		res = Net::HTTP.post_form(URI("http://www.pogdesign.co.uk/cat/"), 
+		{:username => login, :password => password, :sub_login => "Account Login"})
+		
+		cookie = res.to_hash["set-cookie"]
+		
+		return "Invalid login/password." if (cookie.nil?)
+		
+		cookie = cookie.join("")
+		
+		res = Net::HTTP.new("www.pogdesign.co.uk").get("/cat/showselect.php", {"Cookie" => cookie})
+		body = res.body
+		
+		checked = body.scan(/checkedletter(.*?)<\/div>/im).flatten.join("").scan(/>([^>]*?)<\/a>/im).flatten
+		
+		checked.collect! {
+			|name|
+			name.end_with?(" [The]") ? "The "+name.gsub(" [The]", "") : name
+		}
+		
+		checked.uniq.sort
+	end
+	
+	def self.animecalendar(login, password)
+		if login.nil? || password.nil? || login.empty? || password.empty?
+			return "No login/password provided."
+		end
+		
+		http = Net::HTTP.new("animecalendar.net")
+		
+		res = http.get("/login")
+		csrf_token = res.body.scan(/name=\"signin\[_csrf_token\]\" value=\"(.*?)\"/i).flatten.first
+		cookie = res.to_hash["set-cookie"].join("")
+		
+		res = http.post("/login",
+		"signin[username]=#{login}&signin[password]=#{password}&signin[_csrf_token]=#{csrf_token}",
+		{'Cookie' => cookie, 'Referer' => 'http://animecalendar.net/login'})
+
+		cookie = res.to_hash["set-cookie"]
+		
+		return "Invalid login/password." if (cookie.nil?)
+		
+		cookie = cookie.join("")
+		
+		res = Net::HTTP.new("animecalendar.net").get("/shows/filter", {"Cookie" => cookie})
+		
+		res.body.scan(/checked\">(.*?)<\/td>/im).flatten.collect{
+			|item|
+			item.strip.force_encoding("UTF-8")
+		}.uniq.sort
+	end
+	
+	def self.imdb_watchlist(user_id, placeholder)
+		res = Net::HTTP.new("www.imdb.com").get("/list/export?list_id=watchlist&author_id=#{user_id}")
+		
+		return "Invalid user ID." if res.code.to_i != 200
+		
+		titles = []
+		lines = res.body.split("\n")
+		lines.shift
+		lines.each {
+			|line|
+			titles << line.split("\",\"")[5]
+		}
+		
+		titles.sort
+	end
+	
+	def self.rottentomatoes(method)
+		k = "greezhtn4sga8txehjedvzyx".split("t").reverse.join("t")
+		res = Net::HTTP.new("api.rottentomatoes.com").get("/api/public/v1.0/lists/#{method}.json?limit=25&page_limit=50&apikey=#{k}")
+		
+		return "Error. Please retry later." if res.code.to_i != 200
+		
+		movies = []
+		begin
+			json = JSON.parse(res.body.strip)
+			json["movies"].each {
+				|movie|
+				movies << [movie["title"], movie["ratings"]["audience_score"].to_i]
+			}
+		rescue StandardError => e
+			puts PrettyError.new("Error while parsing JSON for RottenTomatoes #{method}", e, true)
+			return "Error. Please retry later."
+		end
+		
+		if (method != "movies/box_office")
+			movies = movies.sort_by { |title, audience_score| audience_score }.reverse
+		end
+		
+		movies = movies.collect {
+			|title, audience_score|
+			title
+		}
+		
+		movies
+	end
+	
+	def self.rottentomatoes_boxoffice(placeholder, placeholder2)
+		self.rottentomatoes("movies/box_office")
+	end
+
+	def self.rottentomatoes_upcomingmovies(placeholder, placeholder2)
+		self.rottentomatoes("movies/upcoming")
+	end
+	
+	def self.rottentomatoes_upcomingdvd(placeholder, placeholder2)
+		self.rottentomatoes("dvds/upcoming")
 	end
 end

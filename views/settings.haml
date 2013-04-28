@@ -4,7 +4,7 @@
 		%title Lade
 		%link{:rel => "stylesheet", :type => "text/css", :href => "/css/main.css"}
 		%script{:type => "text/javascript",
-				:src => "/js/jquery-1.8.1.min.js"}
+				:src => "/js/jquery-2.0.0.min.js"}
 		:javascript
 			$(document).ready(function() {
 				$(".switch div").click(function(){
@@ -44,6 +44,8 @@
 				%a{:href => "/"}home
 			%li
 				%a.current{:href => "/settings"}settings
+			%li
+				%a{:href => "/history"}history
 			%li
 				%a{:href => "/ondemand"}on demand
 			%li

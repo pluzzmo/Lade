@@ -1,0 +1,35 @@
+!!!
+%html
+	%head
+		%title Lade
+		%link{:rel => "stylesheet", :type => "text/css", :href => "/css/main.css"}
+	%body
+		%ul#links
+			%li
+				%a{:href => "/"}home
+			%li
+				%a{:href => "/settings"}settings
+			%li
+				%a.current{:href => "/history"}history
+			%li
+				%a{:href => "/ondemand"}on demand
+			%li
+				%a{:href => "https://github.com/inket/Lade/issues"}feedback
+		
+		._600px
+			%h1 download history
+			%p Use this page to restart downloads that might have been interrupted
+			
+			- if @items.empty?
+				%p{:style => "margin-top: 40px"}
+					%b Your download history seems to be empty!
+			- else
+				%ul.history{:style => "margin-top: 40px"}
+					- @items.each do |queue_item|
+						.download-confirm
+							%p
+								%span.filename
+									%b=queue_item[:module]+"&nbsp;" if queue_item[:module]
+									#{queue_item[:name] || queue_item[:files].first[:filename]}
+								%span.info
+									%a.thin.button-link{:href => "/history/start/"+queue_item[:reference]} Start

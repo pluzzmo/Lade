@@ -2,6 +2,7 @@ class Nyaa
 	# a file containing a torrent ID. any torrent ID found lesser than this reference ID would be ignored
   @@nyaa_cache_path = File.join(File.dirname(__FILE__), *%w[../cache/nyaa])
   @@base_search_url = "http://www.nyaa.eu/?page=search&cats=0_0&filter=0&term="
+  @@debug = false
   
   def self.run(to_download, already_downloaded, max)
 	  result = []
@@ -21,7 +22,8 @@ class Nyaa
 		to_download.list.each {
 			|query|
 			
-			puts "Trying search query '#{query}'..."
+			puts "Trying search query '#{query}'..." if @@debug
+			
 			search_result = nil
 			Helper.attempt_and_raise(3) {
 				search_result = open(@@base_search_url+CGI.escape(query)).read.to_s
@@ -107,36 +109,31 @@ class Nyaa
 		true
 	end
 	
-	def self.on_demand
+	def self.on_demand(reference = nil)
 		page = nil
 		Helper.attempt_and_raise(3) {
-			page = open("http://www.nyaa.eu/").read.to_s
+			page = open("http://www.nyaa.eu/").read.to_s.force_encoding ("UTF-8")
 		}
+		
+		groups = []
 		
 		result = page.scan(/(?:torrentinfo|view)\&#38;tid\=(\d+)\"\>(.*?)\<\//im).uniq.collect {
 			|id, name|
-			[CGI.unescapeHTML(name), id]
+			name = CGI.unescapeHTML(name)
+			groups << {
+				:name => name,
+				:reference => id,
+				:files => [{
+					:download => "http://www.nyaa.eu/?page=download&tid="+id,
+					:filename => name+".torrent"
+					}
+				]
+			}
 		}
 		
-		result
+		groups
 	end
-	
-	def self.download_on_demand(reference)
-		page = nil
-		Helper.attempt_and_raise(3) {
-			page = open("http://www.nyaa.eu/?page=view&tid="+reference).read.to_s
-		}
-		
-		name = page.scan(/class=\"viewtorrentname\">(.*?)<\/td/im).flatten.first
-		
-		file = {
-			:download => "http://www.nyaa.eu/?page=download&tid="+reference,
-			:filename => name+".torrent"
-		}
-		
-		[{:files => [file], :reference => reference}]
-	end
-	
+
 	def self.settings_notice
 		"Type one <b>search query</b> per line.
 		
@@ -148,6 +145,10 @@ class Nyaa
 		HorribleSubs Hunter X Hunter 720p
 		Commie Tamako Market
 		rori Sakurasou"
+	end
+	
+	def self.list_sources
+		["animecalendar"]
 	end
 
 	def self.description

@@ -1,11 +1,11 @@
 !!!
 %html
 	%head
-		%title= @downloads.count>0 ? @downloads.count.to_s+" download"+(@downloads.count==1 ? "" : "s" )+" @ "+@global_speed : "Lade"
+		%title= @downloads.count>0 ? "Lade: "+@downloads.count.to_s+" download"+(@downloads.count==1 ? "" : "s" )+" @ "+@global_speed : "Lade"
 		%link{:rel => "stylesheet", :type => "text/css", :href => "/css/main.css"}
 		
 		%script{:type => "text/javascript",
-				:src => "/js/jquery-1.8.1.min.js"}
+				:src => "/js/jquery-2.0.0.min.js"}
 		:javascript
 			unrar_log_opened = false;
 			tooltip_x = null;
@@ -40,7 +40,7 @@
 				{
 					if (classes[i].indexOf("-visible") > -1)
 					{
-						timeout_id = setTimeout('$("body").removeClass(classes[i])', 150);
+						timeout_id = setTimeout('$("body").removeClass("'+classes[i]+'")', 150);
 					}
 				}
 			}
@@ -63,7 +63,10 @@
 				{
 					$("body").load("/?t="+(new Date().getTime()), "", function() {
 						if ($("#hidden-page-title").html())
-							document.title = $("#hidden-page-title").html();
+						{
+							name = ($("#hidden-page-title").html() == "Lade") ? "" : "Lade — "
+							document.title = name+$("#hidden-page-title").html();
+						}
 						position_tooltip(null);
 							
 						setTimeout("get_update()", 1500);

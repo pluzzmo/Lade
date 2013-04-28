@@ -4,30 +4,124 @@
 		%title Lade
 		%link{:rel => "stylesheet", :type => "text/css", :href => "/css/main.css"}
 		%script{:type => "text/javascript",
-				:src => "/js/jquery-1.8.1.min.js"}
+				:src => "/js/jquery-2.0.0.min.js"}
+		%script{:type => "text/javascript",
+				:src => "/js/jquery.eventsource.js"}
 		:javascript
 			$(document).ready(function() {
-				jQuery.expr[':'].Contains = function(a,i,m){
+				// Define our filter expression
+				jQuery.expr[':'].Contains = function(a,i,m) {
 					return (a.textContent || a.innerText || "").toUpperCase().indexOf(m[3].toUpperCase())>=0;
 				};
 				
-				$("#filter-input").focus();
 				
+				$("#filter-input").focus();
+
 				$("#filter-input").keyup(function (e) {
 					if (e.keyCode == 13)
 				  		e.preventDefault();
 				  	
-			    	var filter = $(this).val();
-			    	if (filter) {
-			  			$("#ondemand-list li").find("a:not(:Contains(" + filter + "))").parent().slideUp();
-			  			$("#ondemand-list li").find("a:Contains(" + filter + ")").parent().slideDown();
-			    	}
-			    	else
-			    	{
-			  			$("#ondemand-list").find("li").slideDown();
-			    	}
+					updateFilter();
 			  	});
 			});
+			
+			function updateFilter() {
+				var filter = $("#filter-input").val();
+				  	if (filter) {
+							$("#ondemand-list li").find("a:not(:Contains(" + filter + "))").parent().hide();
+							$("#ondemand-list li").find("a:Contains(" + filter + ")").parent().show();
+				  	}
+				  	else
+				  	{
+							$("#ondemand-list").find("li").show();
+				  	}
+			}
+			
+			function setProgress(perc) {
+				$("#ondemand-progress-bar").css('width', perc);
+				$("#ondemand-progress-bar").html(perc+'&nbsp;');
+				
+				if (perc == '100%')
+				{
+					setTimeout("$('#ondemand-progress-bar').slideUp();", 3000);
+				}
+			}
+			
+			function addListItem(arr) {
+				var addLocation = (arr[1].indexOf("/") != 0)
+				var href = addLocation ? (location.href+"/"+arr[1]) : arr[1]
+				
+				var li = "<li><a href='"+href+"'>"+arr[0]+"</a></li>";
+				$("#ondemand-list").append(li);
+			}
+			
+			debug = false;
+			
+			function closeEventStream() {
+				if (!$("#ondemand-status").hasClass("error") && !$("#ondemand-status").hasClass("success"))
+				{
+					$("#ondemand-status").html("");
+					setProgress('100%');
+				}
+				
+				$.eventsource("close", "response-stream");
+			}
+			
+			function listen(uri) {				
+				$.eventsource({
+					label: "response-stream", 
+					url: uri,
+					open: function(e) {
+						setTimeout("closeEventStream()", 90000);
+					},
+					message: function(e) {
+						if (debug)
+						{
+							console.log((new Date()).toLocaleString());
+							console.log(e);
+						}
+						
+						if (e.close)
+						{
+							closeEventStream();
+						}
+						else
+						{
+							var object = e;
+						
+							if (e.data)
+							{
+								$.each(e.data, function(i, value) {
+									addListItem(value);
+								});
+								
+								updateFilter();
+								$("#ondemand-result-info").html($("#ondemand-list").children().length+" results");
+							}
+							else if (e.title || e.message)
+							{
+								$("#ondemand-status").html(e.title || e.message);
+								if (e.message)
+									$("#ondemand-status").addClass("success");
+							}
+							else if (e.error)
+							{
+								$("#ondemand-status").html(e.error);
+								$("#ondemand-status").addClass("error");
+								setProgress('0%');
+							}
+							
+							if (e.progress)
+							{
+								setProgress(e.progress);
+							}
+						}
+					}
+				});
+			}
+			
+		%script
+			listen('#{@stream_uri}');
 	%body
 		%ul#links
 			%li
@@ -35,23 +129,22 @@
 			%li
 				%a{:href => "/settings"}settings
 			%li
+				%a{:href => "/history"}history
+			%li
 				%a.current{:href => "/ondemand"}on demand
 			%li
 				%a{:href => "https://github.com/inket/Lade/issues"}feedback
 				
 		._600px
-			%h1 on demand for #{@module}
+			%h1 on demand #{'for '+@module if @module}
 			
 			%p#ondemand-hint
 				Click any file/release to start download
-				%input#filter-input.a-bit-wide-text-input{:type => "text", :placeholder => "Filter..."}
-			%p#ondemand-notice
-				- if @success
-					Download started successfully.
-			- if @list
-				%ul#ondemand-list
-					- @list.each do |item|
-						%li
-							%a{:href => "/ondemand/"+@module+"/"+item[1]}= item[0]
-			- elsif @success.nil?
-				%p No releases found.
+				%input#filter-input.wide-text-input{:type => "text", :placeholder => "Filter...", :style => "margin-right: 0px;"}
+
+			#ondemand-status Initializing...
+			#ondemand-result-info 0 results
+			.clear
+			#ondemand-progress-bar{:style => 'width: 0%;'}
+
+			%ul#ondemand-list

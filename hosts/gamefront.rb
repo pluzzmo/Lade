@@ -91,6 +91,7 @@ class GameFront
 		# calculate total size for each group, mark incomplete groups as :dead
 		grouped_files.each {
 			|group|
+			group[:host] = "GameFront"
 			group[:size] = 0
 			last_part = group[:files].first[:filename].scan(/\.part(\d+)\.rar/).flatten.first.to_i
 			

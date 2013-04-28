@@ -1,3 +1,4 @@
+require 'rubygems'
 require 'open-uri'
 
 class Updater
@@ -105,18 +106,6 @@ class Updater
 		
 		broken_modules_list_path = @@path+"config/broken_modules"
 		ListFile.overwrite(broken_modules_list_path, broken_modules)
-	end
-	
-	def self.needed_gems
-		optional_gems = ["ruby_gntp"]
-			
-		needed_gems = []
-		optional_gems.each {
-			|name|
-			next if Updater.gem_available?(name)
-			needed_gems << name
-		}
-		needed_gems
 	end
 	
 	def self.available_modules
@@ -233,8 +222,18 @@ class Updater
 		Gem.available?(name)
 	end
 	
-	def self.install_needed_gems
-		if (!Updater.needed_gems.empty?)
+	def self.install_missing_gems
+		needed_gems = ["thin", "sinatra", "haml", "rufus-scheduler", "json", "ruby_gntp"]
+		
+		missing_gems = []
+		needed_gems.each {
+			|name|
+			missing_gems << name unless Updater.gem_available?(name)
+		}
+		
+		if (!missing_gems.empty?)
+			puts "Missing gems: #{missing_gems.join(', ')}."
+			puts "Installing..."
 			Dir.chdir(@@path)
 			system("bundle", "install")
 		end

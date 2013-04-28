@@ -3,6 +3,7 @@ require "rubygems"
 require 'sinatra'
 require 'haml'
 require 'rufus/scheduler'
+require 'json'
 
 # things you might want to change
 @@debug = false
@@ -37,6 +38,8 @@ if (require_authentication)
 	require_authentication = false if @@auth_name.nil? || @@auth_pw.nil?
 end
 
+@@lade_checking_for_new_downloads = false
+
 # set up the timer
 @@scheduler = Rufus::Scheduler.start_new
 @@job = nil
@@ -46,7 +49,8 @@ def start_scheduler(frequency)
 
 	@@job = @@scheduler.every frequency, :first_at => Time.now, :mutex => 'script' do
 		|the_job|
-
+		
+		@@lade_checking_for_new_downloads = true
 		settings = FileConfig.getConfig
 		if (settings["enable_updates"].nil? || settings["enable_updates"])
 			load @@path+"updater.rb"
@@ -55,6 +59,7 @@ def start_scheduler(frequency)
 
 		load @@path+"lade.rb"
 		Lade.main
+		@@lade_checking_for_new_downloads = false
 	end
 end
 
@@ -117,11 +122,7 @@ get '/' do
 		@extracting_progress = progress.to_i
 		break
 	}
-	@extracting_txt = "extracting"
-	(@extracting_progress.to_i % 4).times {
-		@extracting_txt += "."
-	}
-	
+		
 	# Read the errors log if previous extractions had any errors
 	@unrar_errors = File.exist?(downloads_folder_path+"unrar-error.log")
 	if (@unrar_errors)
@@ -216,9 +217,6 @@ get '/' do
 	# Get list of broken modules
 	@broken_modules = @installed_modules.empty? ? [] : ListFile.new(path+"config/broken_modules").list
 	
-	# Get list of needed gems
-	@needed_gems = Updater.needed_gems
-	
 	# Get Lade status
 	@config = FileConfig.getConfig
 	@config["enabled"] = !@config["stopped"]
@@ -232,6 +230,8 @@ get '/' do
 		@page_title = @header+global_speed_str
 		@header = @page_title
 	end
+	
+	@checking = @@lade_checking_for_new_downloads
 
 	haml :index, :layout => request.xhr? ? false : :index_layout
 end
@@ -299,12 +299,22 @@ post '/settings' do
 	end
 end
 
+post '/listsource/:source' do
+	wanted_source = params[:source]
+	
+	if (!wanted_source.nil? && !wanted_source.empty?)
+		login = params[:login]
+		password = params[:password]
+		
+		ListSource.get(wanted_source, login, password)
+	end
+end
 
 get '/module/:module' do
-	cond1 = (!params[:module].nil? && !params[:module].empty?)
-	cond2 = (Lade.available_modules.include?(params[:module].capitalize))
+	valid_module_name = (!params[:module].nil? && !params[:module].empty?)
+	module_exists = (Lade.available_modules.include?(params[:module].capitalize))
 
-	if (cond1 && cond2)
+	if (valid_module_name && module_exists)
 		@module = params[:module].capitalize
 
 		load path+"modules/"+params[:module].downcase+".rb"
@@ -313,6 +323,20 @@ get '/module/:module' do
 		if module_class.respond_to?("settings_notice")
 			@notice = module_class.settings_notice.gsub("\n", "<br>")
 		end
+		
+		@source = nil
+		if module_class.respond_to?("list_sources")
+			@sources = module_class.list_sources.collect {
+				|source|
+				if (source.kind_of?(Array))
+					@source = source
+					nil
+				else
+					source
+				end
+			}.compact.uniq
+		end
+		@sources_info = ListSource.info
 
 		@list = ListFile.new(path+"config/"+params[:module].downcase).list.join("\n")
 		haml :module_settings
@@ -322,11 +346,11 @@ get '/module/:module' do
 end
 
 post '/module/:module' do
-	cond1 = (!params[:module].nil? && !params[:module].empty?)
-	cond2 = (Lade.available_modules.include?(params[:module].capitalize))
-	cond3 = !params[:list].nil?
+	valid_module_name = (!params[:module].nil? && !params[:module].empty?)
+	module_exists = (Lade.available_modules.include?(params[:module].capitalize))
+	valid_list = !params[:list].nil?
 
-	if (cond1 && cond2 && cond3)
+	if (valid_module_name && module_exists && valid_list)
 		list = params[:list].split("\n").collect {
 			|item|
 			item.strip
@@ -345,6 +369,20 @@ post '/module/:module' do
 		if module_class.respond_to?("settings_notice")
 			@notice = module_class.settings_notice.gsub("\n", "<br>")
 		end
+		
+		@source = nil
+		if module_class.respond_to?("list_sources")
+			@sources = module_class.list_sources.collect {
+				|source|
+				if (source.kind_of?(Array))
+					@source = source
+					nil
+				else
+					source
+				end
+			}.compact.uniq
+		end
+		@sources_info = ListSource.info
 
 		@list = ListFile.new(path+"config/"+params[:module].downcase).list.join("\n")
 
@@ -367,71 +405,238 @@ get '/ondemand' do
 	haml :ondemand
 end
 
-get '/ondemand/:module' do
-	cond1 = (!params[:module].nil? && !params[:module].empty?)
-	cond2 = (Lade.available_modules.include?(params[:module].capitalize))
+get '/ondemand/*' do
+	redirect to("/ondemand") if params[:splat].empty? || params[:splat].first.empty?
+	parts = params[:splat].first.split("/")
+	
+	module_name = parts.shift
+	reference = parts.join("/")
 
-	if (cond1 && cond2)
-		@module = params[:module].capitalize
+	valid_module_name = !module_name.empty?
+	module_exists = (Lade.available_modules.include?(module_name.capitalize))
 
-		load path+"modules/"+params[:module].downcase+".rb"
-		module_class = eval("#{@module}")
-
-		if module_class.respond_to?("download_on_demand") && module_class.respond_to?("on_demand")
-			@list = module_class.on_demand
-		end
-
+	if (valid_module_name && module_exists)
+		@module = module_name.capitalize
+		@reference = reference
+		@stream_uri = "/stream/ondemand/#{@module}/#{@reference}"
+		
 		haml :module_ondemand
 	else
 		redirect to("/")
 	end
 end
 
-get '/ondemand/:module/*' do
-	redirect to("/ondemand/#{params[:module]}") if params[:splat].first.empty?
-
-	# stream(:keep_open) { |out| connections << out }
+def presentable_link_groups(link_groups, reset_temp_file = false)
+	# add the links to a temp file so we can start them if needed without
+	# doing all of this again
+	yaml_file = YAMLFile.new(@@path+"config/temp")
+	yaml_file.overwrite([]) if reset_temp_file
+	yaml_file << link_groups
 	
-	cond1 = (!params[:module].nil? && !params[:module].empty?)
-	cond2 = (Lade.available_modules.include?(params[:module].capitalize))
-
-	if (cond1 && cond2)
-		@module = params[:module].capitalize
-		@reference = params[:splat].first.split("/")
-
-		if @reference.count == 1
-			@reference = @reference.first 
-		else
-			step = @reference.count
-		end
-
-		load path+"modules/"+params[:module].downcase+".rb"
-		module_class = eval("#{@module}")
-
+	# present the links to the user as a legible list
+	list = []
+	link_groups.each {
+		|group|
+		
+		valid_group = false
 		begin
-			method_name = "download_on_demand"+(step ? "_step#{step.to_s}" : "")
-
-			if module_class.respond_to?(method_name) && module_class.respond_to?("on_demand")
-				@result = eval("module_class.#{method_name}(@reference)")
-			end
-
-			raise StandardError.new("Module didn't return further download information for #{@reference.to_s}") unless @result && !@result.empty?
-
-			if @result.first.kind_of?(Hash) # module returned links
-				Lade.start_downloads(@module.downcase, @result, true)
-				@success = true
-			else # module returned another list
-				@list = @result
-			end
-		rescue StandardError => e
-			puts e.to_s
-			puts e.backtrace.join("\n")
+			valid_group = true if (!group[:files].first.nil?)
+		rescue
 		end
+		
+		next if !valid_group
+		
+		group_name = group[:name] || group[:reference]
+		group_host = group[:host] ? "[#{group[:host]}] " : ""
+		group_size = group[:size] ? " (#{Helper.human_size(group[:size])})" : ""
+		
+		friendly_name = "#{group_host}#{group_name}#{group_size}"
+		start_from_temp_uri = "/temp/start/#{group_name}#{':'+group[:host] if group[:host]}"
+		
+		list << [friendly_name, start_from_temp_uri]
+	}
+	
+	list
+end
 
-		haml :module_ondemand
-	else
-		redirect to("/")
+get '/stream/ondemand/*' do
+	content_type "text/event-stream"
+	stream do |out|
+		if (!params[:splat].empty? && !params[:splat].first.empty?)
+			parts = params[:splat].first.split("/")
+			
+			module_name = parts.shift
+			reference = parts.join("/")
+			reference = nil if reference.empty?
+			
+			valid_module_name = !module_name.empty?
+			module_exists = (Lade.available_modules.include?(module_name.capitalize))
+			
+			if (valid_module_name && module_exists)
+				load path+"modules/"+module_name.downcase+".rb"
+				@module = module_name.capitalize
+				module_class = eval("#{@module}")
+				
+				if module_class.respond_to?("on_demand")
+					out << "data: #{{:title => 'Loading...', :progress => '0%'}.to_json}\n\n"
+					
+					begin
+						threads = module_class.on_demand(reference)
+						reset_temp_file = true
+						
+						if (!threads.empty? && threads.first.kind_of?(Thread))
+							# Module sent us threads so we'll send new data to browser everytime a thread finishes
+							start = Time.now
+							thread_count = threads.count
+						
+							until (threads.empty? || (Time.now - start > 60)) do
+								threads.each {
+									|thread|
+									progress = (((thread_count - (threads.count-1))/thread_count.to_f)*100).to_i
+									
+									if (thread["list"]) # Module returned another choice for the user
+										out << "data: #{{:data => thread["list"], :progress => progress.to_s+'%'}.to_json}\n\n"
+										threads.delete(thread)
+									elsif (thread["groups"]) # Module returned links
+										link_groups = thread["groups"]
+										link_groups.each {
+											|group|
+											group[:module] = @module
+										}
+										list = presentable_link_groups(link_groups, reset_temp_file)
+										reset_temp_file = false
+										
+										out << "data: #{{:data => list, :progress => progress.to_s+'%'}.to_json}\n\n"
+										
+										threads.delete(thread)
+									end
+								}
+								
+								sleep 1 unless threads.empty?
+							end
+						
+							# kill remaining threads if execution time > 60s
+							threads.each {
+								|thread|
+								thread.kill
+							}
+						else
+							# Module sent us data so we'll just transfer it directly
+							data = threads
+							progress = 100
+							if (!data.empty? && data.first.kind_of?(Hash)) # module returned links
+								data.each {
+									|group|
+									group[:module] = @module
+								}
+								list = presentable_link_groups(data)
+								out << "data: #{{:data => list, :progress => progress.to_s+'%'}.to_json}\n\n"
+							else # module returned another choice for the user
+								out << "data: #{{:data => data, :progress => progress.to_s+'%'}.to_json}\n\n"
+							end
+						end
+					rescue StandardError => e
+						message = "Module #{@module} had an error. Refer to the logs for details."
+						puts PrettyError.new(message, e, true)
+						out << "data: #{{:error => message}.to_json}\n\n"
+					end
+				else
+					out << "data: #{{:error => 'Module doesn\'t support On Demand'}.to_json}\n\n"
+				end
+			end
+		end
+		
+		out << "data: #{{:close => true}.to_json}\n\n"
 	end
+end
+
+get '/temp/start/*' do
+	redirect to("/") if params[:splat].empty? || params[:splat].first.empty?
+	
+	@stream_uri = "/stream/temp/start/"+params[:splat].join("")
+	haml :module_ondemand
+end
+
+get '/stream/temp/start/*' do
+	content_type "text/event-stream"
+	stream do |out|
+		out << "data: #{{:title => 'Starting downloads...'}.to_json}\n\n"
+		
+		if (!params[:splat].empty?)
+			reference = params[:splat].first
+
+			# get the host and correct reference if the format is <ref>:<host>
+			host = reference.reverse.split(":", 2).first.reverse
+			if (host != reference)
+				reference = reference.reverse.split(":", 2).last.reverse
+			else
+				host = nil
+			end
+			
+			array = YAMLFile.new(@@path+"config/temp").value
+			
+			wanted_group = nil
+			first_pass = true
+			Helper.attempt(2) {
+				array.each {
+					|group|
+					name_matches = (!group[:name].nil? && group[:name] == reference)
+					ref_matches = (!group[:reference].nil? && group[:reference] == reference)
+					
+					host_ok = (host.nil? || group[:host] == host)
+					
+					if (((name_matches && first_pass) || (ref_matches && !first_pass)) && host_ok)
+						wanted_group = group
+						break
+					end
+				}
+				
+				first_pass = false
+				raise StandardError.new("Didn't find the requested downloads.") if wanted_group.nil?
+			}
+			
+			if (wanted_group)
+				begin
+					Lade.start_downloads(wanted_group[:module], [wanted_group], true)
+					out << "data: #{{:message => 'Downloads started successfully.'}.to_json}\n\n"
+				rescue StandardError => e
+					message = "Lade couldn't start the downloads."
+					puts PrettyError.new(message, e, true)
+					out << "data: #{{:error => message}.to_json}\n\n"
+				end
+			else
+				out << "data: #{{:error => 'Unexpected error occured.'}.to_json}\n\n"
+			end
+		end
+		
+		out << "data: #{{:close => true}.to_json}\n\n"
+	end
+end
+
+get %r{/history/?$} do
+	file = YAMLFile.new(@@path+"config/download_history")
+	@items = file.value.reverse
+	
+	haml :history
+end
+
+get '/history/start/:ref' do
+	file = YAMLFile.new(@@path+"config/download_history")
+	history = file.value
+	reference = params[:ref]
+	to_start = nil
+	if (history)
+		history.each {
+			|hash|
+			to_start = hash if (hash[:reference] == reference)
+		}
+		
+		if (to_start)
+			Lade.start_downloads(to_start[:module], [to_start], true)
+		end
+	end
+	
+	redirect to("/")
 end
 
 get '/queue/start/:ref' do

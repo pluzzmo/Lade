@@ -1,4 +1,4 @@
-##Lade 1.1
+##Lade 1.2
 
 #####Description
 
@@ -22,6 +22,31 @@ Navigate to where you want Lade's folder created, then
 `ruby process.rb stop`, then delete Lade's folder
 
 #####Changelog
+######1.2
+- Changed "on demand" pages/modules mechanism to allow for threading. Much **less waiting**, much less network usage, much less prone to errors.
+- Added **Download History** so you can restart downloads if need be
+- New module: **Movies**! Downloads torrents of high quality movies from PublicHD
+- **ListSources**: You can now load lists from various sources such as IMDB, RottenTomatoes, Pogdesign, Animecalendar, so you don't have to type shows or movie names by hand in module settings.
+- Lade now requires the gem `json`. Launch Lade through Terminal to install it if you don't have it already.
+- Lade will now indicate when it's looking for new releases on its homepage.
+- JS clean-up on lots of pages
+- Tiny fixes to hosts
+- Updated jQuery
+
+Notable module updates:
+
+- Slow modules (those that require a lot of network requests) are now threaded
+- *Anime* will now rely on episode numbers too, so that it doesn't download the same episode in two different releases.
+
+
+Module developers:
+
+- This version changes a lot of things (especially the "on demand" mechanism). Use the official modules as reference and you'll be alright. Template module is not up to date for the moment.
+
+Known issues:
+
+- EventSource is not supported in Internet Explorer, I'll have to find a fallback. In the meantime, don't expect "on demand" pages to work on IE.
+
 ######1.1.3
 - Rewrote module Shows to use a new and much better source with PutLocker+BillionUploads+GameFront links
 - Brought back BillionUploads support

@@ -4,10 +4,62 @@
 		%title Lade
 		%link{:rel => "stylesheet", :type => "text/css", :href => "/css/main.css"}
 		%script{:type => "text/javascript",
-				:src => "/js/jquery-1.8.1.min.js"}
+				:src => "/js/jquery-2.0.0.min.js"}
 		:javascript
+			$(document).ready(function(){
+				$(".listsource input").keyup(function (e) {
+					if (e.keyCode == 13)
+					{
+				  		e.preventDefault();
+				  		loadList($(this).parent());
+				  	}
+			  	});
+			});
+			
 			function add(txt) {
 				$('#list-editor').val($('#list-editor').val()+'\n'+txt);
+			}
+			
+			function addSelected(form) {
+				add(form.children("select").val());
+			}
+			
+			function addAll(form) {
+				form.children("select").children().each(function(i, elem) { add(elem.text); });
+			}
+			
+			function loadList(form) {
+				var serializedData = form.serialize();
+				
+				var inputs = form.find("input");
+				inputs.prop("disabled", true);
+				
+				source = form.attr("id");
+				form.children(".progress-indicator").css("display", "inline-block");
+				
+				$.post('/listsource/'+source, serializedData, function(response) {
+					inputs.prop("disabled", false);
+					
+					var obj = JSON.parse(response);
+					
+					if (obj.error)
+					{
+						form.children("p").addClass("error");
+						form.children("p").html(obj.error);
+						form.children(".progress-indicator").hide();
+					}
+					else
+					{
+						items = "";
+						$.each(obj.list, function(i, elem) {
+							items += "<option>"+elem+"</option>";
+						});
+						
+						form.children().toggle();
+						form.children("span").show().append("<br>");
+						form.children("select").append(items);
+					}
+				});
 			}
 	%body
 		%ul#links
@@ -16,17 +68,44 @@
 			%li
 				%a.current{:href => "/settings"}settings
 			%li
+				%a{:href => "/history"}history
+			%li
 				%a{:href => "/ondemand"}on demand
 			%li
 				%a{:href => "https://github.com/inket/Lade/issues"}feedback
 				
 		._500px
 			%h1 settings for #{@module}
+			- if @success
+				#settings-success Settings saved successfully.
+			- if @notice || @source
+				#settings-notice
+					=@notice
+					- if @source
+						#settings-source
+							%select#source
+								- @source.each do |name|
+									%option=name
+							%button.source{:type => "button", :onclick => "addSelected($(this).parent())"} Add
+			- if @sources
+				- @sources.each do |src|
+					- if @sources_info[src]
+						%form.listsource{:id => src}
+							%p=@sources_info[src][:description]
+							%span
+								%b=(@sources_info[src][:name] || src.capitalize)+"&nbsp;"
+							
+							- if @sources_info[src][:requires_login] != false
+								%input.text-input{:type => "text", :placeholder => @sources_info[src][:login_placeholder] || "Login", :name => "login"}
+							- if @sources_info[src][:requires_password] != false
+								%input.text-input{:type => "password", :placeholder => @sources_info[src][:password_placeholder] || "Password", :name => "password"}
+							%select{:style => "display: none;"}
+							%button{:type => "button", :onclick => "loadList($(this).parent())"} Load
+							%button{:type => "button", :onclick => "addSelected($(this).parent())", :style => "display: none;"} Add
+							%button{:type => "button", :onclick => "addAll($(this).parent())", :style => "display: none;"} Add All
+							.progress-indicator
+			
 			%form#addform{:name => "form", :method => "POST"}
-				- if @notice
-					#settings-notice= @notice
 				%textarea#list-editor{:name => "list"}=@list
-				- if @success
-					#settings-success Settings saved successfully.
 				%input#form-save{:type => "submit", :value => "Save"}
 			.clear

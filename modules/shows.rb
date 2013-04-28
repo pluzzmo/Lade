@@ -2,13 +2,14 @@ class Shows
 	@@shows_cache_path = File.join(File.dirname(__FILE__), *%w[../cache/shows])
 	@@website = "sw.daerhtesaeler".reverse # don't attract search engines!
 	@@sm_url = "http://"+@@website+("lmx.1trap_tsop/".reverse) # sitemap url
+	@@debug = false
 	
 	def self.run(to_download, already_downloaded, max)
 		result = []
 		remaining = max
 		shows = to_download.list.collect {
 			|name|
-			name.downcase.gsub(" ", "-").gsub("'", "")
+			name.downcase.gsub(" ", "-").gsub("'", "").gsub(/\(|\)/, "")
 		}
 		
 		already_downloaded = already_downloaded.collect {
@@ -19,11 +20,14 @@ class Shows
 		shows_cache = ListFile.new(@@shows_cache_path)
 
 		sitemap = Helper.open_uri(@@sm_url, 153600).to_s
+		sitemap = sitemap.scan(/.*>/im).first
 		releases = sitemap.scan(/<loc>(http\:\/\/#{@@website.gsub(".", "\\.")}\/tv\-shows\/(.*?)\/)<\/loc>.*?<lastmod>(.*?)<\/lastmod>/im).uniq.take(50)
 		
 		releases.each {
 			|url, release_name, lastmod|
-			puts "Trying #{release_name}..."
+			
+			release_name = release_name.gsub(/\s/m, "")
+			puts "Trying #{release_name}..." if @@debug
 			
 			# Can't use parse().to_time in Ruby < 1.9
 			fallback = ((DateTime.parse(lastmod).strftime("%s").to_i - Time.now.to_i) > 3600*2)
@@ -33,11 +37,11 @@ class Shows
 			episode_number = (episode_number.empty? ? nil : episode_number.first)
 			
 			if already_downloaded.include?(release_name)
-				puts "Already downloaded."
+				puts "Already downloaded." if @@debug
 			elsif already_downloaded.include?(episode_number)
-				puts "Episode already downloaded."
+				puts "Episode already downloaded." if @@debug
 			elsif shows_cache.include?(release_name)
-				puts "Released before first-time setup, won't check."
+				puts "Released before first-time setup, won't check." if @@debug
 			else
 				shows.each {
 					|show|
@@ -93,10 +97,10 @@ class Shows
 		
 		if (wanted_release.nil?)
 			if (!fallback)
-				puts "720p version still not uploaded... will check later..."
+				puts "720p version still not uploaded... will check later..." if @@debug
 				return nil
 			else
-				puts "Couldn't find 720p version, falling back to anything else..."
+				puts "Couldn't find 720p version, falling back to anything else..." if @@debug
 				wanted_release = release_names.first
 			end
 		end
@@ -168,114 +172,40 @@ class Shows
 		release_names
 	end
 	
-	def self.on_demand
+	def self.on_demand(reference = nil)
 		result = []
 		
-		sitemap = (open @@sm_url).read.to_s
-		releases = sitemap.scan(/<loc>(http\:\/\/#{@@website.gsub(".", "\\.")}\/tv\-shows\/(.*?)\/)<\/loc>.*?<lastmod>(.*?)<\/lastmod>/im).take(200)
-		
-		releases.each {
-			|url, release_name, lastmod|
+		if (reference.nil?)
+			sitemap = (open @@sm_url).read.to_s
+			releases = sitemap.scan(/<loc>(http\:\/\/#{@@website.gsub(".", "\\.")}\/tv\-shows\/(.*?)\/)<\/loc>.*?<lastmod>(.*?)<\/lastmod>/im).take(200)
 			
-			formatted_name = release_name.gsub(/-|_|\./, " ")
-
-			parts = formatted_name.split(" ").compact
-			
-			parts = parts.collect {
-				|word|
-				word = word.capitalize unless ["and", "of", "with", "in", "x264"].include?(word)
-				word = word.upcase if ["au", "us", "uk", "ca", "hdtv", "xvid", "pdtv", "web", "dl"].include?(word.downcase)
-				word = word.upcase if word =~ /s\d\de\d\d/i
-				word
+			releases.each {
+				|url, release_name, lastmod|
+				
+				formatted_name = release_name.gsub(/-|_|\./, " ")
+	
+				parts = formatted_name.split(" ").compact
+				
+				parts = parts.collect {
+					|word|
+					word = word.capitalize unless ["and", "of", "with", "in", "x264"].include?(word)
+					word = word.upcase if ["au", "us", "uk", "ca", "hdtv", "xvid", "pdtv", "web", "dl"].include?(word.downcase)
+					word = word.upcase if word =~ /s\d\de\d\d/i
+					word
+				}
+				
+				parts << parts.pop.upcase unless parts.empty?
+				
+				formatted_name = parts.join(" ")
+				
+				result << [formatted_name, release_name]
 			}
-			
-			parts << parts.pop.upcase unless parts.empty?
-			
-			formatted_name = parts.join(" ")
-			
-			result << [formatted_name, release_name]
-		}
+		else
+			source = (open "http://#{@@website}/tv-shows/#{CGI.escape(reference)}").read.to_s
+			result = LinkScanner.threaded_scan_and_get(source, {:reference => reference})
+		end
 		
 		result
-	end
-	
-	def self.download_on_demand(reference)
-		source = (open "http://#{@@website}/tv-shows/#{CGI.escape(reference)}").read.to_s
-		
-		link_groups = LinkScanner.scan_and_get(source)
-		best_group = self.best_group(link_groups)
-		
-		result = []
-		link_groups.each {
-			|group|
-			
-			formatted_name = group[:name]+" - "+Helper.human_size(group[:size], 8)
-			
-			url = group[:files].first[:url].downcase
-			host = ""
-			suffix = ""
-			
-			if (url.include?("putlocker.com"))
-				host = "PutLocker: "
-				suffix = "pl"
-			elsif (url.include?("billionuploads.com"))
-				host = "BillionUploads: "
-				suffix = "bu"
-			elsif (url.include?("gamefront.com"))
-				host = "GameFront: "
-				suffix = "gf"
-			end
-
-			formatted_name = host + formatted_name + (group == best_group ? " (recommended)" : "")
-			new_reference = "#{reference}/#{group[:name]}#{':'+suffix unless suffix.empty?}"
-			
-			if (group[:dead])
-				formatted_name = "DEAD - "+formatted_name
-				new_reference = reference
-			end
-			
-			result << [formatted_name, new_reference] 
-		}
-		
-		result
-	end
-	
-	
-	def self.download_on_demand_step2(reference)
-		source = (open "http://#{@@website}/tv-shows/#{CGI.escape(reference.first)}").read.to_s
-		reference.push(reference.pop.split(":"))
-		reference.flatten!
-		
-		link_groups = []
-		host_domain = ""
-		
-		case reference.last
-		when "pl"
-			host_domain = "putlocker.com"
-			link_groups = LinkScanner.get(LinkScanner.scan_for_pl_links(source))
-		when "bu"
-			host_domain = "billionuploads.com"
-			link_groups = LinkScanner.get(LinkScanner.scan_for_bu_links(source))
-		when "gf"
-			host_domain = "gamefront.com"
-			link_groups = LinkScanner.get(LinkScanner.scan_for_gf_links(source))
-		end
-
-		wanted_group = nil
-		
-		link_groups.each {
-			|group|
-			url = group[:files].first[:url].downcase
-
-			if (reference[1] == group[:name] && url.include?(host_domain) && !group[:dead])
-				wanted_group = group
-				break
-			end
-		}
-		
-		if (!wanted_group.nil?)
-			[{:files => wanted_group[:files], :reference => reference.first}]
-		end
 	end
 	
 	def self.settings_notice
@@ -286,6 +216,10 @@ class Shows
 		The Big Bang Theory
 		The Walking Dead
 		Two and a Half Men"
+	end
+	
+	def self.list_sources
+		["pogdesign", "rottentomatoes_boxoffice", "rottentomatoes_upcomingdvd", "rottentomatoes_upcomingmovies"]
 	end
 	
 	def self.has_on_demand?

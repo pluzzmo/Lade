@@ -83,10 +83,11 @@ class PutLocker
 		grouped_files.each {
 			|group|
 			group[:size] = 0
-
+			group[:host] = "PutLocker"
+			
 			group[:files].each {
 				|file|
-
+				
 				group[:size] += file[:size].to_i
 			}
 		}
@@ -102,11 +103,10 @@ class PutLocker
 			data = "hash=#{file[:hash]}&confirm=Continue as Free User"
 			result = http.send_request('POST', "/file/"+file[:id], data, nil)
 			
-			
 			almost_directlink = result.body.scan(/href=\"(\/get_file.*?)\".*?>Download File<\/a>/im).flatten.first
 			
 			if (!almost_directlink || !almost_directlink.start_with?("/get_file.php?"))
-				raise StandardError.new("Error while getting the direct link, script needs update ?")
+				raise StandardError.new("Couldn't get direct link for download.")
 			end
 			
 			res = http.send_request('GET', almost_directlink, nil, nil)
@@ -114,10 +114,10 @@ class PutLocker
 		}
 
 		if ((directlink.nil? || directlink.empty?) && !last_time)
-			puts "Trying again from start..."
+			puts "Trying again with a new download session..."
 			directlink = self.get_download_link(self.check_file(file[:url]), true)
 		elsif ((directlink.nil? || directlink.empty?) && last_time)
-			puts "Couldn't get direct link... skipping."
+			puts "Skipping. Servers might be down."
 		end
 		
 		(directlink.nil? || directlink.empty?) ? nil : directlink

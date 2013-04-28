@@ -1,5 +1,6 @@
 class Eztv
 	@@eztv_cache_path = File.join(File.dirname(__FILE__), *%w[../cache/eztv])
+	@@debug = false
 	
 	def self.run(to_download, already_downloaded, max)
 		shows = to_download.list.collect {
@@ -126,34 +127,15 @@ class Eztv
 		Two and a Half Men"
 	end
 	
+	def self.list_sources
+		["pogdesign"]
+	end
+	
 	def self.has_on_demand? # => Boolean
 		true
 	end
 	
-	def self.on_demand
-		result = []
-		
-		page = nil
-		Helper.attempt_and_raise(3) {
-			page = open("http://eztv.it/").read.to_s
-		}
-		
-		items = page.scan(/<tr\sname=\"hover\"\sclass=\"forum_header_border\">(.*?)<\/tr>/im).flatten.uniq
-		
-		items.each {
-			|item|
-			
-			reference = item.scan(/\/ep\/(\d+)\//im).flatten.uniq.first
-			name = item.scan(/class=\"epinfo\">(.*?)<\/a>/im).flatten.uniq.first
-			
-			result << [name, reference]
-			links = item.scan(/<a\shref=\"([^\"]*?)\"\sclass=\"download_\d\"/im).flatten.uniq
-		}
-		
-		result
-	end
-	
-	def self.download_on_demand(reference)
+	def self.on_demand(reference = nil)
 		result = []
 		
 		page = nil
@@ -167,30 +149,22 @@ class Eztv
 			|item|
 			
 			ref = item.scan(/\/ep\/(\d+)\//im).flatten.uniq.first
-			next if ref != reference
 			name = item.scan(/class=\"epinfo\">(.*?)<\/a>/im).flatten.uniq.first
 			links = item.scan(/<a\shref=\"([^\"]*?)\"\sclass=\"download_\d\"/im).flatten.uniq
 			link = nil
 			
-			# Get mirror links if the main one is down
 			links.each {
-				|mirror|
+				|link|
 				
-				begin
-					link = mirror unless open(mirror).nil?
-				rescue StandardError => e
-				end
-				
-				break if (!link.nil?)
+				host = link.scan(/(?:https?:\/\/)?(?:www\.)?(.*?)\//im).flatten.first
+				file = {:download => link, :filename => name+".torrent"}
+				result << {:files => [file], :name => name, :reference => ref, :host => host} unless link.nil?
 			}
-			
-			file = {:download => link, :filename => name+".torrent"}
-			result << {:files => [file], :reference => ref} unless link.nil?
 		}
 		
 		result
 	end
-
+	
 	def self.broken?
 		false
 	end
