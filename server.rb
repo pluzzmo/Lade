@@ -461,7 +461,13 @@ end
 
 get '/stream/ondemand/*' do
 	content_type "text/event-stream"
+	headers "Access-Control-Allow-Origin" => "*" # IE8 fix
 	stream do |out|
+		# < Windows Phone + Android: EventSource fix (4KB padding)
+		out << ":"+(" "*4096)+"\n"
+		out << "retry: 2000\n"
+		# />
+
 		if (!params[:splat].empty? && !params[:splat].first.empty?)
 			parts = params[:splat].first.split("/")
 			
@@ -505,7 +511,6 @@ get '/stream/ondemand/*' do
 										}
 										list = presentable_link_groups(link_groups, reset_temp_file)
 										reset_temp_file = false
-										
 										out << "data: #{{:data => list, :progress => progress.to_s+'%'}.to_json}\n\n"
 										
 										threads.delete(thread)
@@ -545,7 +550,6 @@ get '/stream/ondemand/*' do
 				end
 			end
 		end
-		
 		out << "data: #{{:close => true}.to_json}\n\n"
 	end
 end
@@ -559,7 +563,13 @@ end
 
 get '/stream/temp/start/*' do
 	content_type "text/event-stream"
+	headers "Access-Control-Allow-Origin" => "*" # IE8 fix
 	stream do |out|
+		# < Windows Phone + Android: EventSource fix (4KB padding)
+		out << ":"+(" "*4096)+"\n"
+		out << "retry: 2000\n"
+		# />
+		
 		out << "data: #{{:title => 'Starting downloads...'}.to_json}\n\n"
 		
 		if (!params[:splat].empty?)

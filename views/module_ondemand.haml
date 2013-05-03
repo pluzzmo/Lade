@@ -6,7 +6,7 @@
 		%script{:type => "text/javascript",
 				:src => "/js/jquery-2.0.0.min.js"}
 		%script{:type => "text/javascript",
-				:src => "/js/jquery.eventsource.js"}
+				:src => "/js/eventsource.js"}
 		:javascript
 			$(document).ready(function() {
 				// Define our filter expression
@@ -56,6 +56,7 @@
 			}
 			
 			debug = false;
+			var es = null;
 			
 			function closeEventStream() {
 				if (!$("#ondemand-status").hasClass("error") && !$("#ondemand-status").hasClass("success"))
@@ -64,59 +65,61 @@
 					setProgress('100%');
 				}
 				
-				$.eventsource("close", "response-stream");
+				es.close();
 			}
 			
-			function listen(uri) {				
-				$.eventsource({
-					label: "response-stream", 
-					url: uri,
-					open: function(e) {
-						setTimeout("closeEventStream()", 90000);
-					},
-					message: function(e) {
-						if (debug)
+			function listen(uri) {
+				es = new EventSource(uri);
+				es.addEventListener('open', function (event) {
+					setTimeout("closeEventStream()", 90000);
+				});
+				es.addEventListener('message', function (e) {
+					e = JSON.parse(e.data);
+					
+					if (debug)
+					{
+						console.log((new Date()).toLocaleString());
+						console.log(e);
+					}
+					
+					if (e.close)
+					{
+						closeEventStream();
+					}
+					else
+					{
+						var object = e;
+					
+						if (e.data)
 						{
-							console.log((new Date()).toLocaleString());
-							console.log(e);
-						}
-						
-						if (e.close)
-						{
-							closeEventStream();
-						}
-						else
-						{
-							var object = e;
-						
-							if (e.data)
-							{
-								$.each(e.data, function(i, value) {
-									addListItem(value);
-								});
-								
-								updateFilter();
-								$("#ondemand-result-info").html($("#ondemand-list").children().length+" results");
-							}
-							else if (e.title || e.message)
-							{
-								$("#ondemand-status").html(e.title || e.message);
-								if (e.message)
-									$("#ondemand-status").addClass("success");
-							}
-							else if (e.error)
-							{
-								$("#ondemand-status").html(e.error);
-								$("#ondemand-status").addClass("error");
-								setProgress('0%');
-							}
+							$.each(e.data, function(i, value) {
+								addListItem(value);
+							});
 							
-							if (e.progress)
-							{
-								setProgress(e.progress);
-							}
+							updateFilter();
+							$("#ondemand-result-info").html($("#ondemand-list").children().length+" results");
+						}
+						else if (e.title || e.message)
+						{
+							$("#ondemand-status").html(e.title || e.message);
+							if (e.message)
+								$("#ondemand-status").addClass("success");
+						}
+						else if (e.error)
+						{
+							$("#ondemand-status").html(e.error);
+							$("#ondemand-status").addClass("error");
+							setProgress('0%');
+						}
+						
+						if (e.progress)
+						{
+							setProgress(e.progress);
 						}
 					}
+				});
+				es.addEventListener('error', function (event) {
+					console.log("Error");
 				});
 			}
 			
