@@ -22,6 +22,11 @@ Navigate to where you want Lade's folder created, then
 `ruby process.rb stop`, then delete Lade's folder
 
 #####Changelog
+######1.2.1
+- "on demand" pages are now compatible with IE8+, Windows Phone, Android Browser in addition to the usual (Chrome, Firefox, Safari, etc.)
+- Module 'Shows' no longer tries to download season packs.
+
+
 ######1.2
 - Changed "on demand" pages/modules mechanism to allow for threading. Much **less waiting**, much less network usage, much less prone to errors.
 - Added **Download History** so you can restart downloads if need be
