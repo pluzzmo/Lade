@@ -12,6 +12,8 @@
 		%a{:href => "https://github.com/inket/Lade/issues"}feedback
 		
 %form#mainswitchform{:name => "form"}
+	- if @checking
+		#checking
 	#enabledSwitch.switch
 		#mainswitch.colored{:title => "Click to enable/disable. Lade won't check for new releases when disabled.", :class => @config["enabled"] ? "switchon" : "switchoff", :onclick => "location.href = '/toggle'"}
 .clear
@@ -42,8 +44,6 @@
 
 	%h1
 		=@header
-		- if @checking
-			#checking
 		- if !@torrent_history.empty?
 			#magnet-icon.torrent-history.icon
 	%ul

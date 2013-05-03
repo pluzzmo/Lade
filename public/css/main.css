@@ -75,7 +75,7 @@ ul {
 	margin: 8px auto;
 }
 
-#extracting, #checking {
+#extracting {
 	display: inline-block;
 	float: right;
 	background: #7c7ee7;
@@ -94,23 +94,33 @@ ul {
 	content: ")"
 }
 
+#mainswitchform .switch {
+	display: inline-block;
+	float: right;
+}
+
 #checking {
 	background: #5592d3;
 	background-image: url('/images/checking.gif');
 	background-repeat: no-repeat;
 	background-position: center;
-	float: none;
+	color: #FFF;
+	display: inline-block;
+	float: left;
+	font-size: 13px;
+	font-weight: 500;
+	height: 19px;
+	line-height: 18px;
+	margin-right: 1px;
+	text-align: left;
 	padding: 1px;
-	height: 17px;
-	width: 17px;
-	vertical-align: middle;
-	margin-bottom: 4px;
+	width: 19px;
 }
 
 #checking:hover {
 	background-position: 99%;
-	padding-left: 3px;
-	width: 200px;
+	padding-left: 5px;
+	width: 192px;
 }
 
 #checking:hover:before {
