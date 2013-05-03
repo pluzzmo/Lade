@@ -68,7 +68,7 @@ start_scheduler(freq) if !@@debug
 # configure Sinatra
 configure do
 	set :port => port
-	set :ip => ip
+	set :bind => ip
 end
 
 def self.enable_authentication
