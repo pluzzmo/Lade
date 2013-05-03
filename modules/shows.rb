@@ -45,11 +45,12 @@ class Shows
 			else
 				shows.each {
 					|show|
-					if (release_name.start_with?(show))
+					is_season_pack = !(release_name =~ Regexp.new("^"+show+"-s\\d\\d([^e]|$)", true)).nil?
+					if (release_name.start_with?(show) && !is_season_pack)
 						begin
 							page = (open url).read.to_s
 							
-							release_names = self.check_page_for_release_names(page, show.gsub("-", "."))
+							release_names = self.check_page_for_release_names(page, show.gsub("-", "."), release_name)
 							links = self.check_page_for_relevant_links(page, release_names, release_name, fallback)
 							
 							if (!links.nil?)
@@ -144,7 +145,7 @@ class Shows
 		}
 	end
 	
-	def self.check_page_for_release_names(source, show_looking_for)
+	def self.check_page_for_release_names(source, show_looking_for, expected_release)
 		source = source.scan(/<div\sclass=\"postarea\">(.*?)<div\sclass=\"clear\"/im).flatten
 
 		raise StandardError.new("Couldn't find release info") if source.empty?
@@ -167,7 +168,7 @@ class Shows
 		
 		release_names = release_names.flatten.uniq.compact
 		
-		raise StandardError.new("No releases are uploaded yet...") if release_names.empty?
+		raise StandardError.new("No releases are uploaded yet for #{expected_release}...") if release_names.empty?
 		
 		release_names
 	end
