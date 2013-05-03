@@ -34,7 +34,7 @@ class Template
 		#  what was already downloaded (already_downloaded) and the maximum number
 		#  of releases to download (max).
 		#- The LinkScanner class (helper.rb) already has helper methods for processing
-		#  links from Rapidshare, GameFront, PutLocker, etc. that you should use.
+		#  links from Rapidshare, GameFront, PutLocker, etc. that you should use if needed.
 		#
 		# => Parameters:
 		#    - to_download (ListFile [see helper.rb]): the settings file that was filled in
@@ -100,13 +100,13 @@ class Template
 		##
 		# Return a Boolean indicating whether this module should be available in the 'on demand' section
 		#
-		#- Only return true if the methods 'on_demand', 'download_on_demand(reference)' have been implemented.
+		#- Only return true if the method 'on_demand' has been implemented.
 		##
 		
 		true
 	end
 	
-	def self.on_demand # => Array
+	def self.on_demand(reference = nil) # => Array
 		##
 		# Return an Array of Arrays containing the names and references of the items available for download.
 		# Names & References are both Strings.
@@ -118,44 +118,6 @@ class Template
 		[]
 	end
 	
-	def self.download_on_demand(reference) # => Array
-		##
-		# Return an Array of Hashes containing the groups of links to download.
-		#
-		# Hash structure:
-		# {
-		# 	# (:name) String: Name of the release or name of multipart files without extension. OPTIONAL
-		# 	:name => name,
-		# 	# (:files) Array of Hashes: the hashes of the files you want to download
-		# 	:files => [file1, file2],
-		# 	# (:reference) String: reference of this item for later identification. (e.g. torrent id, permalink, etc.)
-		# 	:reference => reference
-		# }
-		#
-		#
-		# File Hash structure (for :files)
-		# {
-		# 	# (:download) String: Direct URL for download (will be used in wget)
-		#   :download => directlink,
-		#   # (:filename) String: File name
-		#   :filename => filename
-		# }
-		#
-		#- Use the reference String to identify what the user wants to download,
-		#  get the links and other info and return them.
-		##
-		
-		[]
-	end
-	
-	def self.download_on_demand_step2(reference) # => Array
-		##
-		# This is only used in case multi-step on demand (you probably won't need it).
-		# See the official module 'Shows' for an example.
-		# Also see "get '/ondemand/:module/*' do" in server.rb to learn how it works.
-		##
-	end
-
 	def self.broken? # => Boolean
 		##
 		# Return a Boolean indicating whether this module is currently broken or not.
