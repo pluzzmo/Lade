@@ -5,7 +5,7 @@ class Anime
 	def self.thread_for_dir(path, list_only = true)
 		return Thread.new(path, list_only) {
 			|path, list_only|
-			tentaclenoises = (open "http://tentaclenoises.co.uk"+path).read.to_s.force_encoding("UTF-8")
+			tentaclenoises = (open "http://tentaclenoises.co.uk"+path).read.to_s.to_utf8
 			items = tentaclenoises.scan(/(\d+|&lt;dir&gt;)\s\<a\shref\=\"(.*?)\"\>(.*?)\<\/a\>/im)
 			
 			result = []

@@ -2,6 +2,25 @@ require 'yaml'
 require 'json'
 require 'net/http'
 
+class String
+	# workaround for Ruby <1.9 not having `force_encoding`
+	# http://stackoverflow.com/a/4585362/528645
+	def to_utf8
+		begin
+			if (RUBY_VERSION.start_with?("1.8."))
+				require 'iconv'
+				::Iconv.conv('UTF-8//IGNORE', 'UTF-8', self + ' ')[0..-2]
+				self
+			else
+				self.force_encoding("UTF-8")
+			end
+		rescue StandardError => e
+			puts PrettyError.new("Couldn't force UTF-8 on string #{self}", e)
+			self
+		end
+	end
+end
+
 class FileConfig
 	@@path = File.join(File.dirname(__FILE__), *%w[/])
 	@@config_file_path = @@path+"config/settings"
@@ -557,7 +576,7 @@ class ListSource
 		
 		res.body.scan(/checked\">(.*?)<\/td>/im).flatten.collect{
 			|item|
-			item.strip.force_encoding("UTF-8")
+			item.strip.to_utf8
 		}.uniq.sort
 	end
 	

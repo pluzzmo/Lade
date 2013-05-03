@@ -112,7 +112,7 @@ class Nyaa
 	def self.on_demand(reference = nil)
 		page = nil
 		Helper.attempt_and_raise(3) {
-			page = open("http://www.nyaa.eu/").read.to_s.force_encoding ("UTF-8")
+			page = open("http://www.nyaa.eu/").read.to_s.to_utf8
 		}
 		
 		groups = []

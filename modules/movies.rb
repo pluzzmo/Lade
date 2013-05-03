@@ -9,8 +9,8 @@ class Movies
 		
 		movies_cache = ListFile.new(@@movies_cache_path)
 		
-		source = open(@@source_page).read.to_s.force_encoding("UTF-8")
-		source += open(@@source_page+"&pages=2").read.to_s.force_encoding("UTF-8")
+		source = open(@@source_page).read.to_s.to_utf8
+		source += open(@@source_page+"&pages=2").read.to_s.to_utf8
 		
 		items = source.scan(/\"download\.php\?id=([0-9a-f]+)&amp;f=(.*?)\"/im).collect {
 			|id, name|
@@ -85,7 +85,7 @@ class Movies
 	end
 	
 	def self.update_cache
-		source = open(@@source_page).read.to_s.force_encoding("UTF-8")
+		source = open(@@source_page).read.to_s.to_utf8
 		ids = source.scan(/\"download\.php\?id=([0-9a-f]+)&amp;/im).flatten.uniq.compact
 		
 		ListFile.overwrite(@@movies_cache_path, ids) unless ids.empty?
@@ -99,8 +99,8 @@ class Movies
 		# no threading because it's favorable to have an ordered new-to-old list
 		# like the one that appears in the website
 		
-		source = open(@@source_page).read.to_s.force_encoding("UTF-8")
-		source += open(@@source_page+"&pages=2").read.to_s.force_encoding("UTF-8")
+		source = open(@@source_page).read.to_s.to_utf8
+		source += open(@@source_page+"&pages=2").read.to_s.to_utf8
 		
 		groups = []
 		trs = source.scan(/<tr>.*?<\/tr>/im)
