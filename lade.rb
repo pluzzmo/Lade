@@ -104,6 +104,7 @@ class Lade
     
     if (should_notify)
       begin
+        require 'ruby_gntp'
         port = ((@@growl_port.nil? || @@growl_port.empty?) ? 23053 : @growl_port.to_i)
         growl = GNTP.new("Lade", @@growl_host, @@growl_password, port)
         growl.register({
