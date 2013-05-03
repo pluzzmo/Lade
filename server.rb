@@ -797,6 +797,10 @@ get '/api/downloads/count' do
 	lines.count.to_s
 end
 
+get '/api/waiting/count' do
+	(YAMLFile.new(@@path+"config/queue").value || []).count.to_s
+end
+
 get '/restart' do
 	@@scheduler.in '2s' do
 		load @@path+"updater.rb"
