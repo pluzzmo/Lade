@@ -60,8 +60,6 @@ begin
 	puts "Lade started! Visit http://localhost:3333/ on your browser."
 	puts "Type 'ruby process.rb start' in Terminal to start Lade next time!"
 	`sleep 2 && open "http://localhost:3333/"`
-
-	File.delete(pwd+"/"+__FILE__)
 rescue Interrupt
 	exit
 end
