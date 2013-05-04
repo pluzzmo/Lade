@@ -32,7 +32,7 @@ begin
 	puts "*Lade will be installed to '#{Dir.pwd}'"
 	available_rev = "master"
 	begin
-		available_rev = open("https://raw.github.com/inket/Lade/master/rev").read.to_s.gsub(/\s/m)
+		available_rev = open("https://raw.github.com/inket/Lade/master/rev").read.to_s.gsub(/\s/m, "")
 	rescue StandardError
 	end
 

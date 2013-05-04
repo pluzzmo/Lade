@@ -13,10 +13,10 @@ class Updater
 		restart_server = false
 		begin
 			current_rev = nil
-			File.open(@@path+"rev", "r") { |f| current_rev = f.read.to_s.gsub(/\s/m) } if File.exist?(@@path+"rev")
+			File.open(@@path+"rev", "r") { |f| current_rev = f.read.to_s.gsub(/\s/m, "") } if File.exist?(@@path+"rev")
 			available_rev = nil
 			begin
-				available_rev = open("https://raw.github.com/inket/Lade/master/rev").read.to_s.gsub(/\s/m)
+				available_rev = open("https://raw.github.com/inket/Lade/master/rev").read.to_s.gsub(/\s/m, "")
 			rescue StandardError
 				puts "Couldn't get rev file from repo."
 			end
@@ -131,7 +131,7 @@ class Updater
 
 			if (!is_url)
 				current_rev = nil
-				File.open(@@path+"rev", "r") { |f| current_rev = f.read.to_s.gsub(/\s/m) } if File.exist?(@@path+"rev")
+				File.open(@@path+"rev", "r") { |f| current_rev = f.read.to_s.gsub(/\s/m, "") } if File.exist?(@@path+"rev")
 				current_rev = "master" if current_rev.nil?
 				
 				url = "https://raw.github.com/inket/Lade/#{current_rev}/modules/#{url_or_name}"
