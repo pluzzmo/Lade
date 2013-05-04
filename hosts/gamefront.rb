@@ -111,6 +111,8 @@ class GameFront
 					file[:dead] = true
 				}
 			end
+
+			group[:name] = group[:files].first[:filename] if group[:files].count == 1
 		}
 		
 		grouped_files

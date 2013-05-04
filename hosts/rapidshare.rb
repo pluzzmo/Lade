@@ -80,6 +80,8 @@ class Rapidshare
 				group[:size] += file[:size].to_i
 				group[:dead] = true unless file[:status] == "1"
 			}
+
+			group[:name] = group[:files].first[:filename] if group[:files].count == 1
 		}
 		
 		grouped_files

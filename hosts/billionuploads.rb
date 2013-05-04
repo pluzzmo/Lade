@@ -79,7 +79,11 @@ class BillionUploads
 				
 				group[:size] += file[:size].to_i
 			}
+
+			group[:name] = group[:files].first[:filename] if group[:files].count == 1
 		}
+
+		grouped_files
 	end
 	
 	def self.get_download_link(file)
