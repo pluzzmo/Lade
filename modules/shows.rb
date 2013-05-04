@@ -30,8 +30,9 @@ class Shows
 			puts "Trying #{release_name}..." if @@debug
 			
 			# Can't use parse().to_time in Ruby < 1.9
-			fallback = ((DateTime.parse(lastmod).strftime("%s").to_i - Time.now.to_i) > 3600*2)
-			
+			fallback = ((Time.now.to_i - DateTime.parse(lastmod).strftime("%s").to_i) > 3600*2)
+			puts "Fallback: #{fallback} (diff: #{(Time.now.to_i - DateTime.parse(lastmod).strftime("%s").to_i)})" if @@debug
+
 			# Checking to see if it's already downloaded
 			episode_number = release_name.scan(/(.*?s\d\de\d\d(\-?e\d\d)?)-/).flatten
 			episode_number = (episode_number.empty? ? nil : episode_number.first)
@@ -102,7 +103,7 @@ class Shows
 				return nil
 			else
 				puts "Couldn't find 720p version, falling back to anything else..." if @@debug
-				wanted_release = release_names.first
+				wanted_release = release_names.last
 			end
 		end
 		
@@ -141,7 +142,8 @@ class Shows
 		{
 			:files => best_group[:files],
 			:name => wanted_release,
-			:reference => page_name
+			:reference => page_name,
+			:host => best_group[:host]
 		}
 	end
 	
@@ -154,6 +156,8 @@ class Shows
 		us_regex = Regexp.new(show_looking_for.gsub(/\./, "[\\.\\s]")+"[\\.\\s]S\\d\\dE\\d\\d.*", true)
 		# UK release naming convention: show_name.1x01
 		uk_regex = Regexp.new(show_looking_for.gsub(/\./, "[_\\s]")+"[\\.\\s]\\d\\d?.{1,2}\\d\\d.*", true)
+		# Other release naming conventions, e.g. show.name.yyyy.mm.dd
+		other_regex =  Regexp.new("^"+show_looking_for.gsub(/\./, "[\\.\\s]")+"[\\.\\s].*", true)
 		
 		source = source.first.gsub(/\n/, "").gsub(/<br\s?\/?>/, "").strip
 		bolded_parts = source.scan(/<strong>(.*?)<\/strong>/).flatten
@@ -161,9 +165,11 @@ class Shows
 		
 		bolded_parts.each {
 			|part|
-			
+
+			part = part.strip
 			release_names << part.scan(us_regex)
 			release_names << part.scan(uk_regex)
+			release_names << part.scan(other_regex)
 		}
 		
 		release_names = release_names.flatten.uniq.compact
