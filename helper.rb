@@ -401,6 +401,8 @@ class YAMLFile
 				File.open(path, "r") do |f|
 					@value = YAML.load(f.read) || []
 				end
+			else
+				@value = []
 			end
 		rescue StandardError => e
 			puts PrettyError.new("Error while loading YAML file", e, true)
