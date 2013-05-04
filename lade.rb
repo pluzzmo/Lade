@@ -302,6 +302,7 @@ def self.notify(filename, action_type)
       |group|
       group[:module].capitalize!
 
+      added = false
       download_history.value.collect! {
         |ex_group|
         module_name_matches = (ex_group[:module] == group[:module]) || ex_group[:module].nil?
@@ -310,11 +311,14 @@ def self.notify(filename, action_type)
         size_matches = (ex_group[:size] == group[:size]) || ex_group[:size].nil? || group[:size].nil?
 
         if (module_name_matches && host_matches && reference_matches && size_matches)
+          added = true
           group
         else
           ex_group
         end
       }
+
+      download_history.value << group unless added
     }
     download_history.save
     
