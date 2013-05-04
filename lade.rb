@@ -10,95 +10,95 @@ class Lade
 ####
 #####
 
-  require 'rubygems'
-  require 'net/http'
-  require 'open-uri'
-  require 'date'
-  require 'cgi'
-  
-  @@path = File.join(File.dirname(__FILE__), *%w[/])
-  
-  load @@path+"helper.rb"
-  load @@path+"updater.rb"
+require 'rubygems'
+require 'net/http'
+require 'open-uri'
+require 'date'
+require 'cgi'
 
-  @@config_folder_path = @@path+"config/"
-  @@downloads_folder_path = @@path+"downloads/"
-  @@modules_folder_path = @@path+"modules/"
-  @@hosts_folder_path = @@path+"hosts/"
-  @@cache_folder_path = @@path+"cache/"
-  @@log_folder_path = @@path+"log/"
-  
-  @@already_downloaded_list_path = @@config_folder_path+"downloaded"
-  @@torrent_history_path = @@config_folder_path+"torrent_history"
-  @@download_history_path = @@config_folder_path+"download_history"
-  @@queue_path = @@config_folder_path+"queue"
-  
-  def self.load_config
-    @@config = FileConfig.getConfig
-    @@stopped = @@config["stopped"]
-    @@max_concurrent_downloads = @@config["max_concurrent_downloads"] || 1
-    @@max_concurrent_downloads = 99 if @@max_concurrent_downloads == 0
-    @@extract = @@config["extract"]
-    @@require_confirmation = @@config["require_confirm"]
-    @@torrent_autoadd_dir = @@config["torrent_autoadd_dir"] || ""
-    @@torrent_downloads_dir = @@config["torrent_downloads_dir"] || ""
-    
-    @@growl_notifications = @@config["growl_notifications"] || false
-    @@growl_host = @@config["growl_host"]
-    @@growl_port = @@config["growl_port"] || 23053
-    @@growl_password = @@config["growl_password"] || ""
-    @@notify_on_download_start = @@config["notify_on_download_start"]
-    @@notify_on_download_finish = @@config["notify_on_download_finish"]
-    @@notify_on_download_confirm = @@config["notify_on_download_confirm"]
-  end
-  
-  def self.prep_directories
-    dirs = [@@config_folder_path, @@downloads_folder_path, @@modules_folder_path, @@hosts_folder_path, @@cache_folder_path, @@log_folder_path]
-    
-    dirs.each { |dir|
-      if (!File.directory?(dir))
-        begin
-          Dir.mkdir(dir)
-        rescue StandardError => e
-          puts PrettyError.new("Couldn't create necessary folders", e)
-          return false
-        end
+@@path = File.join(File.dirname(__FILE__), *%w[/])
+
+load @@path+"helper.rb"
+load @@path+"updater.rb"
+
+@@config_folder_path = @@path+"config/"
+@@downloads_folder_path = @@path+"downloads/"
+@@modules_folder_path = @@path+"modules/"
+@@hosts_folder_path = @@path+"hosts/"
+@@cache_folder_path = @@path+"cache/"
+@@log_folder_path = @@path+"log/"
+
+@@already_downloaded_list_path = @@config_folder_path+"downloaded"
+@@torrent_history_path = @@config_folder_path+"torrent_history"
+@@download_history_path = @@config_folder_path+"download_history"
+@@queue_path = @@config_folder_path+"queue"
+
+def self.load_config
+  @@config = FileConfig.getConfig
+  @@stopped = @@config["stopped"]
+  @@max_concurrent_downloads = @@config["max_concurrent_downloads"] || 1
+  @@max_concurrent_downloads = 99 if @@max_concurrent_downloads == 0
+  @@extract = @@config["extract"]
+  @@require_confirmation = @@config["require_confirm"]
+  @@torrent_autoadd_dir = @@config["torrent_autoadd_dir"] || ""
+  @@torrent_downloads_dir = @@config["torrent_downloads_dir"] || ""
+
+  @@growl_notifications = @@config["growl_notifications"] || false
+  @@growl_host = @@config["growl_host"]
+  @@growl_port = @@config["growl_port"] || 23053
+  @@growl_password = @@config["growl_password"] || ""
+  @@notify_on_download_start = @@config["notify_on_download_start"]
+  @@notify_on_download_finish = @@config["notify_on_download_finish"]
+  @@notify_on_download_confirm = @@config["notify_on_download_confirm"]
+end
+
+def self.prep_directories
+  dirs = [@@config_folder_path, @@downloads_folder_path, @@modules_folder_path, @@hosts_folder_path, @@cache_folder_path, @@log_folder_path]
+
+  dirs.each { |dir|
+    if (!File.directory?(dir))
+      begin
+        Dir.mkdir(dir)
+      rescue StandardError => e
+        puts PrettyError.new("Couldn't create necessary folders", e)
+        return false
       end
-    }
-    
-    true
-  end
-  
-  def self.concurrent_downloads_count
-    processes = `ps ax | grep '\\\-\\\-dejunk'`
-    releases_downloading = []
-    
+    end
+  }
+
+  true
+end
+
+def self.concurrent_downloads_count
+  processes = `ps ax | grep '\\\-\\\-dejunk'`
+  releases_downloading = []
+
     # get filenames from those processes
     processes.lines.each { |process|
       next if process.include?("grep")
       
       process.scan(/\-\-dejunk\s\'(.*?)\'\)/i) { |match|
-        filename = match.flatten.first
-    
-        noextension = filename.gsub(/#{"\\"+File.extname(filename)}$/, "")
-        if noextension.match(/\.part\d+$/)
-          noextension = noextension.gsub(/#{"\\"+File.extname(noextension)}$/, "")
-        end
-    
-        releases_downloading << noextension
-      }
-    }
-    
-    releases_downloading.uniq.count
-  end
-  
-  def self.notify(filename, action_type)
-    Lade.load_config
+      filename = match.flatten.first
 
-    should_notify = [
-      @@notify_on_download_start,
-      @@notify_on_download_finish,
-      @@notify_on_download_confirm][action_type-1]
+      noextension = filename.gsub(/#{"\\"+File.extname(filename)}$/, "")
+      if noextension.match(/\.part\d+$/)
+        noextension = noextension.gsub(/#{"\\"+File.extname(noextension)}$/, "")
+      end
+
+      releases_downloading << noextension
+    }
+  }
+
+  releases_downloading.uniq.count
+end
+
+def self.notify(filename, action_type)
+  Lade.load_config
+
+  should_notify = [
+    @@notify_on_download_start,
+    @@notify_on_download_finish,
+    @@notify_on_download_confirm][action_type-1]
     should_notify = should_notify && @@growl_notifications
     should_notify = should_notify && !@@growl_host.nil? && !@@growl_host.strip.empty?
     
@@ -112,7 +112,7 @@ class Lade
             {:name => "Download Start"},
             {:name => "Download Finish"},
             {:name => "Download Needs Confirmation"}]
-        })
+            })
         
         case action_type
         when 1
@@ -163,15 +163,15 @@ class Lade
       
       entry = entry.capitalize
       (entry.end_with?".rb") ? entry.gsub(".rb", "") : entry if !entry.start_with?"."
-    }.compact
-  end
-  
-  def self.run_module(module_name)
-    max = @@require_confirmation ? 99 : (@@max_concurrent_downloads - Lade.concurrent_downloads_count)
-    if (max < 1)
-      throw :reason, "*Already at maximum concurrent downloads. Won't run module #{module_name}."
+      }.compact
     end
-    
+
+    def self.run_module(module_name)
+      max = @@require_confirmation ? 99 : (@@max_concurrent_downloads - Lade.concurrent_downloads_count)
+      if (max < 1)
+        throw :reason, "*Already at maximum concurrent downloads. Won't run module #{module_name}."
+      end
+
     # Load the module
     puts "Starting module #{module_name}..."
     load @@modules_folder_path+module_name.downcase+".rb"
@@ -219,24 +219,24 @@ class Lade
       |item|
       split = item.split(":", 2)
       split.last if split.first == module_name.downcase
-    }.compact
+      }.compact
 
-    begin
-      if (!to_download.list.empty?)
-        result = module_class.run(to_download, already_downloaded, max).flatten.compact
-        result.each {
-          |group|
-          group[:module] = module_name
-        }
-      else
-        result = []
-        puts "Won't run module #{module_name} because its settings are empty."
+      begin
+        if (!to_download.list.empty?)
+          result = module_class.run(to_download, already_downloaded, max).flatten.compact
+          result.each {
+            |group|
+            group[:module] = module_name
+          }
+        else
+          result = []
+          puts "Won't run module #{module_name} because its settings are empty."
+        end
+      rescue StandardError => e
+        puts PrettyError.new(nil, e)
+        throw :reason, "There was a problem running the module #{module_name}."
       end
-    rescue StandardError => e
-      puts PrettyError.new(nil, e)
-      throw :reason, "There was a problem running the module #{module_name}."
-    end
-    
+
     # Update the module's cache
     begin
       if result.empty? && module_class.respond_to?("update_cache")
@@ -283,18 +283,8 @@ class Lade
   end
   
   def self.start_downloads(module_name, groups, force_start = false)
-    # Update the download history before starting the downloads!
-    download_history = YAMLFile.new(@@download_history_path)
-    groups.each {
-      |group|
-      group[:module].capitalize!
-      download_history.value << group unless download_history.value.include?(group)
-    }
-    download_history.save
-    
     groups.each {
       |hash|
-      
       # special cleaning for files downloaded by module 'Shows'
       one = "?_?))sw|moc(.\\:?(daerhtesaeler?_".reverse
       hash[:files] = hash[:files].collect {
@@ -303,6 +293,33 @@ class Lade
         
         file
       }
+      hash[:name].gsub!(/#{one}/im, "")
+    }
+
+    # Update the download history before starting the downloads!
+    download_history = YAMLFile.new(@@download_history_path)
+    groups.each {
+      |group|
+      group[:module].capitalize!
+
+      download_history.value.collect! {
+        |ex_group|
+        module_name_matches = (ex_group[:module] == group[:module]) || ex_group[:module].nil?
+        host_matches = (ex_group[:host] == group[:host]) || ex_group[:host].nil? || group[:host].nil?
+        reference_matches = (ex_group[:reference] == group[:reference])
+        size_matches = (ex_group[:size] == group[:size]) || ex_group[:size].nil? || group[:size].nil?
+
+        if (module_name_matches && host_matches && reference_matches && size_matches)
+          group
+        else
+          ex_group
+        end
+      }
+    }
+    download_history.save
+    
+    groups.each {
+      |hash|
       
       firstfile = hash[:files].first
       group_name = hash[:name] || firstfile[:filename] || firstfile[:download].split("/").last
@@ -333,23 +350,23 @@ class Lade
             puts PrettyError.new("Couldn't get direct link for file: #{file}", e, true)
             nil
           end
-        }.compact
+          }.compact
 
-        links.each {
-          |directlink, filename|
-          self.start_download(directlink, filename)
-        }
-        
-        Lade.notify(group_name, 1)
-      end
-      
-      if (module_name && hash[:reference])
-        ListFile.add_and_save(@@already_downloaded_list_path, module_name.downcase+":"+hash[:reference])
-      end
-    }
-  end
-  
-  def self.start_download(directlink, filename, cookie = nil)
+          links.each {
+            |directlink, filename|
+            self.start_download(directlink, filename)
+          }
+
+          Lade.notify(group_name, 1)
+        end
+
+        if (module_name && hash[:reference])
+          ListFile.add_and_save(@@already_downloaded_list_path, module_name.downcase+":"+hash[:reference])
+        end
+      }
+    end
+
+    def self.start_download(directlink, filename, cookie = nil)
     # constructing the command; organized for clarity
     
     primary_cmd = "wget '#{directlink}'"
@@ -364,7 +381,7 @@ class Lade
     silencer = ">/dev/null 2>&1 &"
 
     cmd = "(#{wget} && #{dl_finish_call}) #{silencer}"
-      
+
     `#{cmd}`
     
     puts "Direct download started."
@@ -538,7 +555,6 @@ class Lade
       
       # Extract the archives
       if (@@extract)
-        puts "****************\nExtraction time!\n****************\n"
         puts "No files to extract." if archives.count == 0
 
         archives.each {
@@ -575,14 +591,14 @@ class Lade
               cleaned_filename = file.gsub(/#{one}/im, "")
               
               if ((extensions_to_keep.include?extension) || (File.new("#{extraction_folder}/#{file}").size >= (1024*128)) || is_directory)
-                
+
                 File.rename(
-                "#{extraction_folder}/#{file}",
-                "#{@@downloads_folder_path}#{cleaned_filename}")
+                  "#{extraction_folder}/#{file}",
+                  "#{@@downloads_folder_path}#{cleaned_filename}")
                 puts "'#{cleaned_filename}' moved to 'Downloads'"
                 next
               end
-            
+
               File.delete("#{extraction_folder}/#{file}")
               puts "'#{extraction_folder.split("/").last}/#{file}' removed."
             }
@@ -636,14 +652,14 @@ class Lade
       File.open(tmp_log, "r") do |f|
         log = f.read
       end
-    
+
       File.open(@@downloads_folder_path+"unrar-error.log", "a") do |f|
         f.write("
-        **************************\n
-        #{archive} extract attempt @ #{Time.now.to_s}\n
-        **************************\n
-        #{log}
-        \n\n\n\n\n\n")
+          **************************\n
+          #{archive} extract attempt @ #{Time.now.to_s}\n
+          **************************\n
+          #{log}
+          \n\n\n\n\n\n")
       end
       
       File.rename(new_name, failure_name)
