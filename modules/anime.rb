@@ -28,7 +28,6 @@ class Anime
 					file = {
 						:name => item.last,
 						:size => item.first.to_i,
-						:url => "http://tentaclenoises.co.uk"+item[1],
 						:download => "http://tentaclenoises.co.uk"+item[1] }
 					group = {
 						:name => item.last,
@@ -127,7 +126,7 @@ class Anime
 				
 				if (ep_number.nil? || !ep_already_downloaded)
 					file = {:download => "http://tentaclenoises.co.uk"+item.first, :filename => item.last}
-					result << {:files => [file], :reference => item.last}
+					result << {:files => [file], :reference => item.last, :name => item.last}
 					remaining = remaining - 1
 				end
 			end
@@ -146,7 +145,11 @@ class Anime
 		end
 		
 		result
-	end	
+	end
+
+	def self.update_cache
+		# let Lade remove entries from 'downloaded' because we've already updated the cache manually
+	end
 
 	def self.settings_notice
 		"Type one anime name per line.
