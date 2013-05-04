@@ -140,19 +140,6 @@ class LinkScanner
 		text.scan(/http\:\/\/(?:www\.)?billionuploads\.com\/[a-z\d]{12}/im).flatten.uniq
 	end
 	
-	def self.scan_for_zdoox_links(text)
-		found = []
-		text.scan(/zdoox\.com\/firm\/\d+/im).uniq.flatten.collect {
-			|zdoox|
-			zdoox = zdoox.gsub("/firm/", "/firm/m1.php?id=") unless zdoox.include?("m1.php")
-			source = (open("http://"+zdoox)).read.to_s
-			links = source.scan(/NewWindow\(\'(.*?)\'/im)
-			found << links
-		}
-		
-		found.flatten.compact.uniq
-	end
-	
 	def self.get(links_of_interest) # deprecated, please use threaded version instead
 		begin
 			Lade.load_hosts
@@ -200,7 +187,6 @@ class LinkScanner
 	end
 	
 	def self.scan_and_get(text) # deprecated, please use threaded version instead
-		text = text + "\n" + LinkScanner.scan_for_zdoox_links(text).join("\n")
 		links = LinkScanner.scan_for_rs_links(text)
 		links += LinkScanner.scan_for_bu_links(text)
 		links += LinkScanner.scan_for_gf_links(text)
@@ -211,9 +197,7 @@ class LinkScanner
 	
 	def self.threaded_scan_and_get(text, additional_params = nil)
 		threads = []
-		
-		text = text + "\n" + LinkScanner.scan_for_zdoox_links(text).join("\n")
-		
+				
 		# a thread for each host
 		threads << LinkScanner.threaded_get(LinkScanner.scan_for_rs_links(text), additional_params)
 		threads << LinkScanner.threaded_get(LinkScanner.scan_for_bu_links(text), additional_params)
