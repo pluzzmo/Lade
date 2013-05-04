@@ -7,10 +7,8 @@ class Updater
 	
 	def self.update
 		interrupted = false
-		local_mtime = nil
-		local_mtime = File.mtime(@@path+"server.rb") if File.exist?(@@path+"server.rb")
-
 		restart_server = false
+		
 		begin
 			current_rev = nil
 			File.open(@@path+"rev", "r") { |f| current_rev = f.read.to_s.gsub(/\s/m, "") } if File.exist?(@@path+"rev")
@@ -21,39 +19,41 @@ class Updater
 				puts "Couldn't get rev file from repo."
 			end
 
-			if (current_rev != available_rev && !available_rev.nil? && !available_rev.strip.empty?)
-				puts "Updating to commit #{available_rev} from #{current_rev || 'none'}."
+			if (current_rev != available_rev && !available_rev.nil? && !available_rev.empty?)
+				puts "*Updating to commit #{available_rev} from #{current_rev || 'none'}."
 
-				error = catch(:error) {
-					puts "Downloading zip..."
-					throw(:error, true) unless system("wget", "--quiet", "https://codeload.github.com/inket/Lade/zip/#{available_rev}")
-					puts "Extracting..."
-					throw(:error, true) unless system("unzip", "-qoC", "#{available_rev}")
-					puts "Moving..."
-					throw(:error, true) unless system("cp", "-a", "Lade-#{available_rev}/", "#{@@path}")
+				puts "Downloading zip..."
+				system("wget", "--quiet", "https://codeload.github.com/inket/Lade/zip/#{available_rev}")
+				throw StandardError.new unless $?.success?
 
-					puts "Removing temporary files..."
-					system("rm -rf Lade-#{available_rev}/")
-					system("rm #{available_rev}")
+				puts "Extracting..."
+				system("unzip", "-qoC", "#{available_rev}", "-d", "#{@@path}")
+				throw StandardError.new unless $?.success?
 
-					puts "Done."
-				}
+				puts "Moving..."
+				`cp -a 'Lade-#{available_rev}/'* '#{@@path}'`
+				throw StandardError.new unless $?.success?
 
-				if (!error)
-					current_rev = available_rev
-					puts "Updated to commit #{current_rev}!"
-				end
+				puts "Removing temporary files..."
+				system("rm -rf Lade-#{available_rev}/")
+				system("rm #{available_rev}")
+
+				puts "Done."
+				current_rev = available_rev
+				File.open(@@path+"rev", "w") {|f| f.write(current_rev)}
+				puts "*Updated to commit #{current_rev}!"
+
+				restart_server = true
+			else
+				puts "Already up to date."
 			end
 
-			new_mtime = Time.now
-			new_mtime = File.mtime(@@path+"server.rb") if File.exist?(@@path+"server.rb")
-			restart_server = local_mtime.nil? || (new_mtime != local_mtime)
 			restart_server
 		rescue StandardError => e
 			puts e.backtrace.first
 			puts "Error while checking for updates: #{e.to_s}"
-		# rescue Interrupt
-		# 	interrupted = true
+		rescue Interrupt
+			interrupted = true
 		end
 
 		raise Interrupt.new if interrupted # Silence the huge backtrace that may result if the user interrupts Lade's install
@@ -157,7 +157,7 @@ class Updater
 	
 	def self.log
 		orig_stdout = $stdout
-		$stdout = File.new("#{@@log_folder_path}#{Time.now.strftime("%Y%m%d-h%H")}.txt", "a")
+		$stdout = File.new("#{@@log_folder_path}#{Time.now.strftime("%Y%m%d-h%H")}.log", "a")
 		$stdout.sync = true
 		puts "@ #{Time.now.to_s} - Checking for updates...\n"
 		yield
