@@ -22,7 +22,7 @@ class Updater
 			end
 
 			if (current_rev != available_rev && !available_rev.nil? && !available_rev.strip.empty?)
-				puts "Updating to commit #{available_rev} from #{current_rev}"
+				puts "Updating to commit #{available_rev} from #{current_rev || 'none'}."
 
 				error = catch(:error) {
 					puts "Downloading zip..."

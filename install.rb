@@ -41,7 +41,7 @@ begin
 		f.write(file)
 	end
 
-	puts "Downloading Lade..."
+	puts "*Downloading Lade..."
 	exit_if_unsatisfying(["ruby", "updater.rb", "--update"])
 
 	bundler_installed = !(`which bundle`.empty?)
@@ -50,10 +50,10 @@ begin
 		exit_if_unsatisfying(["sudo", "gem", "install", "bundler"])
 	end
 
-	puts "Checking for dependencies..."
+	puts "*Bundler is checking for dependencies... (you might need to enter your password)"
 	exit_if_unsatisfying(["bundle", "install"])
 
-	puts "Starting Lade..."
+	puts "*Starting Lade..."
 	exit_if_unsatisfying(["ruby", "process.rb", "start"])
 
 	puts "----------------------------------------------------"
