@@ -355,7 +355,7 @@ class Lade
     primary_cmd = "wget '#{directlink}'"
     con_params = "--continue --no-proxy --timeout 30"
     output_file = "--output-document='#{@@downloads_folder_path}#{filename}'"
-    output_log = "--output-file='#{@@log_folder_path}#{filename}.txt'"
+    output_log = "--output-file='#{@@log_folder_path}#{filename}.log'"
     cookie = "--header 'Cookie: #{cookie}'" if cookie
 
     wget = [primary_cmd, con_params, output_file, output_log, cookie].compact.join(" ")
@@ -415,7 +415,7 @@ class Lade
   
   def self.log
     orig_stdout = $stdout
-    $stdout = File.new("#{@@log_folder_path}#{Time.now.strftime("%Y%m%d-h%H")}.txt", "a")
+    $stdout = File.new("#{@@log_folder_path}#{Time.now.strftime("%Y%m%d-h%H")}.log", "a")
     $stdout.sync = true
     puts "@ #{Time.now.to_s}\n\n"
     yield

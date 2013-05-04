@@ -158,7 +158,7 @@ get '/' do
 			end
 
 			matches = last_line.match(/\s\d+\%.*$/).to_s.split(" ")
-			file = log_file.split("/").last.gsub(/.txt$/, "")
+			file = log_file.split("/").last.gsub(/.log$/, "")
 
 			@downloaded.delete(file)
 			@global_speed = @global_speed + Helper.to_bytes(matches[1])
