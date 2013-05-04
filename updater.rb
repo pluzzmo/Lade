@@ -2,82 +2,61 @@ require 'rubygems'
 require 'open-uri'
 
 class Updater
-	@@server = "https://dl.dropbox.com/u/2439981/Lade/"
 	@@path = File.join(File.dirname(__FILE__), *%w[/])
 	@@log_folder_path = @@path+"log/"
 	
-	def self.update(force = false)
+	def self.update
+		interrupted = false
+		local_mtime = nil
+		local_mtime = File.mtime(@@path+"server.rb") if File.exist?(@@path+"server.rb")
+
+		restart_server = false
 		begin
-			restart_server = false
-			
-			server_rev = open(@@server+"version").read.to_s
-			server_files = {}
-			server_rev.lines {
-				|line|
-				a, b = line.split(":")
-				server_files[a] = b.to_i
-			}
-			
-			server_files.each {
-				|path, server_mtime|
-				
-				dir = path.split("/")
-				file = dir.pop
-				dir = dir.join("/")+"/"
-				
-				local_mtime = nil
-				begin
-					local_mtime = File.mtime(@@path+dir+file).to_i
-				rescue
+			current_rev = nil
+			File.open(@@path+"rev", "r") { |f| current_rev = f.read.to_s.gsub(/\s/m) } if File.exist?(@@path+"rev")
+			available_rev = nil
+			begin
+				available_rev = open("https://raw.github.com/inket/Lade/master/rev").read.to_s.gsub(/\s/m)
+			rescue StandardError
+				puts "Couldn't get rev file from repo."
+			end
+
+			if (current_rev != available_rev && !available_rev.nil? && !available_rev.strip.empty?)
+				puts "Updating to commit #{available_rev} from #{current_rev}"
+
+				error = catch(:error) {
+					puts "Downloading zip..."
+					throw(:error, true) unless system("wget", "--quiet", "https://codeload.github.com/inket/Lade/zip/#{available_rev}")
+					puts "Extracting..."
+					throw(:error, true) unless system("unzip", "-qoC", "#{available_rev}")
+					puts "Moving..."
+					throw(:error, true) unless system("cp", "-a", "Lade-#{available_rev}/", "#{@@path}")
+
+					puts "Removing temporary files..."
+					system("rm -rf Lade-#{available_rev}/")
+					system("rm #{available_rev}")
+
+					puts "Done."
+				}
+
+				if (!error)
+					current_rev = available_rev
+					puts "Updated to commit #{current_rev}!"
 				end
-				local_mtime = local_mtime.to_i
-				
-				# Compare modification date, replace old files with new ones
-				if ((server_mtime > local_mtime || force) && (dir != "modules/" || local_mtime != 0))
-					begin
-						# build directory tree if inexistent
-						if !File.exist?(@@path+dir)
-							dir_tree = dir.split("/")
-							
-							dir_tree.count.times { |i|
-								if !File.exist?(@@path+dir_tree.take(i+1).join("/"))
-									Dir.mkdir(@@path+dir_tree.take(i+1).join("/"))
-								end
-							}
-						end
-						
-						# get new file, replace old one
-						new_file = open(@@server+dir+file).read.to_s
-						File.delete(@@path+dir+file) if File.exist?(@@path+dir+file)
-						File.open(@@path+dir+file, "w") do
-							|f|
-							f.write(new_file)
-						end
-						
-						restart_server = true if file == "server.rb"
-						puts "File '#{dir+file}' updated."
-					rescue StandardError => e
-						puts "Couldn't update file '#{dir+file}': #{e.to_s}"
-					end
-				end
-				
-				# remove deprecated files
-				if (server_mtime == -1 && File.exist?(@@path+dir+file))
-					begin
-						File.delete(@@path+dir+file)
-						puts "File '#{dir+file}' removed."
-					rescue StandardError => e
-						puts e.backtrace.first
-						puts e.to_s
-					end
-				end
-			}
-						
+			end
+
+			new_mtime = Time.now
+			new_mtime = File.mtime(@@path+"server.rb") if File.exist?(@@path+"server.rb")
+			restart_server = local_mtime.nil? || (new_mtime != local_mtime)
 			restart_server
 		rescue StandardError => e
 			puts e.backtrace.first
 			puts "Error while checking for updates: #{e.to_s}"
+		# rescue Interrupt
+		# 	interrupted = true
 		end
+
+		raise Interrupt.new if interrupted # Silence the huge backtrace that may result if the user interrupts Lade's install
 	end
 	
 	def self.update_broken_modules_list
@@ -111,17 +90,13 @@ class Updater
 	def self.available_modules
 		available_modules = []
 		begin
-			server_rev = open(@@server+"version").read.to_s
-			server_rev.lines {
+			modules_list = open("https://dl.dropbox.com/u/2439981/Lade/available_modules").read.to_s
+			modules_list.lines {
 				|line|
-				a, b, c = line.split(":", 3)
-				dir, file = a.split("/")
-				
-				if dir == "modules"
-					name = file.gsub(".rb", "").capitalize
-					already_installed = File.exist?(@@path+dir+"/"+file)
-					available_modules << [name, c || "", file, already_installed]
-				end
+				file, description = line.split(":", 2)
+				name = file.gsub(".rb", "").capitalize
+				already_installed = File.exist?(@@path+"modules/"+file)
+				available_modules << [name, description, file, already_installed]
 			}
 		rescue StandardError => e
 			puts e.backtrace.first
@@ -130,76 +105,54 @@ class Updater
 		
 		available_modules
 	end
+
+	def self.gen_available_modules_list
+		list = []
+		@@path = File.join(File.dirname(__FILE__), *%w[/])
+		Dir.entries(@@path+"modules/").each {
+			|entry|
+			next if entry.start_with?(".")
+			
+			load @@path+"modules/"+entry
+			module_class = eval(entry.gsub(".rb", "").capitalize)
+			puts entry
+			list << entry+":"+module_class.description
+		}
+		File.open(@@path+"available_modules", "w") do |f|
+			f.write(list.join("\n"))
+		end
+	end
 	
 	def self.install_module(url_or_name)
 		begin
+			# we have to test with a single slash because we might get a bad url from Sinatra
 			is_url = url_or_name.start_with?("http:/") || url_or_name.start_with?("https:/")
 			url_or_name = url_or_name.gsub("https:/", "http:/").gsub("http://", "http:/").gsub("http:/", "http://") if is_url
-			dir = "modules/"
-			url = (is_url ? url_or_name : @@server+dir+url_or_name)
+
+			if (!is_url)
+				current_rev = nil
+				File.open(@@path+"rev", "r") { |f| current_rev = f.read.to_s.gsub(/\s/m) } if File.exist?(@@path+"rev")
+				current_rev = "master" if current_rev.nil?
+				
+				url = "https://raw.github.com/inket/Lade/#{current_rev}/modules/#{url_or_name}"
+			else
+				url = url_or_name
+			end
+
 			file = url.split("/").last
-			
 			new_file = open(url).read.to_s
-			File.open(@@path+dir+file, "w") do
+			File.open(@@path+"modules/"+file, "w") do
 				|f|
 				f.write(new_file)
 			end
 			
 			true
 		rescue StandardError => e
-			puts e.backtrace.first
+			puts e.backtrace.join("\n")
 			puts "Couldn't install module from #{url_or_name}"
 			
 			false
 		end
-	end
-	
-	def self.gen_version_file
-		lines = gen_for_dir("")
-		
-		File.open(@@path+"version", "w") do
-			|f|
-			f.write(lines.join("\n"))
-		end
-	end
-	
-	def self.gen_for_dir(dir)
-		dir = dir+"/" unless dir.empty? || dir.end_with?("/")
-		return [] if ["downloads/", "log/", "config/", "cache/"].include?dir
-		
-		lines = []
-		
-		Dir.entries(@@path+dir).each {
-			|entry|
-			next if ((entry.start_with?(".")) || (entry == "version") || (entry == "install.rb") || entry.end_with?(".log"))
-			
-			if (File.directory?(@@path+dir+entry))
-				lines = lines + gen_for_dir(dir+entry)
-				next
-			end
-			
-			local_mtime = File.mtime(@@path+dir+entry).to_i.to_s
-			
-			if (dir == "modules/")
-				description = ""
-				
-				begin
-					load @@path+dir+entry
-					class_name = entry.capitalize.gsub(".rb", "")
-					module_class = eval("#{class_name}")
-					description = module_class.description.gsub("\n", " ")
-				rescue StandardError => e
-					puts e.to_s
-					puts e.backtrace.first
-				end
-				
-				lines << "#{dir+entry}:#{local_mtime}:#{description}"
-			else
-				lines << "#{dir+entry}:#{local_mtime}"
-			end
-		}
-		
-		lines
 	end
 	
 	def self.log
@@ -300,6 +253,5 @@ class Updater
 	end
 end
 
-Updater.update(true) if ARGV[0] == "-f" # Force update
-Updater.update if ARGV[0] == "--test" # Test updating
-Updater.gen_version_file if ARGV[0] == "-g" # Generate version file (repo only)
+Updater.update if ARGV[0] == "--update" # Force update
+Updater.gen_available_modules_list if ARGV[0] == "-g" # Server only
