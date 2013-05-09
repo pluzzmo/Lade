@@ -26,11 +26,10 @@ class Anime
 					result << [item[1], item.last] 
 				else
 					file = {
-						:name => item.last,
+						:filename => item.last,
 						:size => item.first.to_i,
 						:download => "http://tentaclenoises.co.uk"+item[1] }
 					group = {
-						:name => item.last,
 						:reference => item.last,
 						:size => item.first.to_i,
 						:files => [file] }
@@ -126,7 +125,7 @@ class Anime
 				
 				if (ep_number.nil? || !ep_already_downloaded)
 					file = {:download => "http://tentaclenoises.co.uk"+item.first, :filename => item.last}
-					result << {:files => [file], :reference => item.last, :name => item.last}
+					result << {:files => [file], :reference => item.last}
 					remaining = remaining - 1
 				end
 			end

@@ -158,7 +158,7 @@ class Eztv
 				
 				host = link.scan(/(?:https?:\/\/)?(?:www\.)?(.*?)\//im).flatten.first
 				file = {:download => link, :filename => name+".torrent"}
-				result << {:files => [file], :name => name, :reference => ref, :host => host} unless link.nil?
+				result << {:files => [file], :reference => ref, :host => host} unless link.nil?
 			}
 		}
 		

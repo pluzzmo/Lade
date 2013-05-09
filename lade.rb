@@ -293,7 +293,7 @@ def self.notify(filename, action_type)
         
         file
       }
-      hash[:name].gsub!(/#{one}/im, "")
+      hash[:name].gsub!(/#{one}/im, "") if hash[:name]
     }
 
     # Update the download history before starting the downloads!

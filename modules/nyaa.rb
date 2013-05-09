@@ -121,7 +121,6 @@ class Nyaa
 			|id, name|
 			name = CGI.unescapeHTML(name)
 			groups << {
-				:name => name,
 				:reference => id,
 				:files => [{
 					:download => "http://www.nyaa.eu/?page=download&tid="+id,
