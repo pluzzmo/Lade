@@ -19,7 +19,7 @@ class Shows
 				
 		shows_cache = ListFile.new(@@shows_cache_path)
 
-		sitemap = Helper.open_uri(@@sm_url, 153600).to_s
+		sitemap = Helper.open_uri(@@sm_url, 153600).to_s # limit fetch size to 150KB — more than enough, better than fetching a 1MB page
 		sitemap = sitemap.scan(/.*>/im).first
 		releases = sitemap.scan(/<loc>(http\:\/\/#{@@website.gsub(".", "\\.")}\/tv\-shows\/(.*?)\/)<\/loc>.*?<lastmod>(.*?)<\/lastmod>/im).uniq.take(50)
 		
@@ -29,9 +29,15 @@ class Shows
 			release_name = release_name.gsub(/\s/m, "")
 			puts "Trying #{release_name}..." if @@debug
 			
-			# Can't use parse().to_time in Ruby < 1.9
-			fallback = ((Time.now.to_i - DateTime.parse(lastmod).strftime("%s").to_i) > 3600*2)
-			puts "Fallback: #{fallback} (diff: #{(Time.now.to_i - DateTime.parse(lastmod).strftime("%s").to_i)})" if @@debug
+			begin
+				# Can't use parse().to_time in Ruby < 1.9
+				fallback = ((Time.now.to_i - DateTime.parse(lastmod).strftime("%s").to_i) > 3600*2)
+				puts "Fallback: #{fallback} (diff: #{(Time.now.to_i - DateTime.parse(lastmod).strftime("%s").to_i)})" if @@debug
+			rescue
+				# couldn't parse date because it's incomplete
+				# happens sometimes because we chose to limit fetch size to 150KB (line 22~)
+				next 
+			end
 
 			# Checking to see if it's already downloaded
 			episode_number = release_name.scan(/(.*?s\d\de\d\d(\-?e\d\d)?)-/).flatten
