@@ -11,7 +11,7 @@ class Lade
 #####
 
 require 'rubygems'
-require 'net/http'
+require 'net/https'
 require 'open-uri'
 require 'date'
 require 'cgi'
@@ -43,13 +43,17 @@ def self.load_config
   @@torrent_autoadd_dir = @@config["torrent_autoadd_dir"] || ""
   @@torrent_downloads_dir = @@config["torrent_downloads_dir"] || ""
 
-  @@growl_notifications = @@config["growl_notifications"] || false
-  @@growl_host = @@config["growl_host"]
-  @@growl_port = @@config["growl_port"] || 23053
-  @@growl_password = @@config["growl_password"] || ""
+  # Notifications
   @@notify_on_download_start = @@config["notify_on_download_start"]
   @@notify_on_download_finish = @@config["notify_on_download_finish"]
   @@notify_on_download_confirm = @@config["notify_on_download_confirm"]
+
+  # Growl
+  @@growl_host = @@config["growl_host"]
+  @@growl_password = @@config["growl_password"] || ""
+
+  # Pushalot
+  @@pushalot_key = @@config["pushalot_key"]
 end
 
 def self.prep_directories
@@ -99,43 +103,91 @@ def self.notify(filename, action_type)
     @@notify_on_download_start,
     @@notify_on_download_finish,
     @@notify_on_download_confirm][action_type-1]
-    should_notify = should_notify && @@growl_notifications
-    should_notify = should_notify && !@@growl_host.nil? && !@@growl_host.strip.empty?
     
     if (should_notify)
-      begin
-        require 'ruby_gntp'
-        port = ((@@growl_port.nil? || @@growl_port.empty?) ? 23053 : @growl_port.to_i)
-        growl = GNTP.new("Lade", @@growl_host, @@growl_password, port)
-        growl.register({
-          :notifications => [
-            {:name => "Download Start"},
-            {:name => "Download Finish"},
-            {:name => "Download Needs Confirmation"}]
-            })
-        
+      # Notify Growl
+      if (@@growl_host && !@@growl_host.strip.empty?)
+        begin
+          require 'ruby_gntp'
+          host = @@growl_host.split(":").first
+          port = @@growl_host.split(":")[1] || 23053
+          growl = GNTP.new("Lade", host, @@growl_password, port)
+          growl.register({
+            :notifications => [
+              {:name => "Download Start"},
+              {:name => "Download Finish"},
+              {:name => "Download Needs Confirmation"}]
+              })
+
+          case action_type
+          when 1
+            name = "Download Start"
+            title = "Lade started a download"
+          when 2
+            name = "Download Finish"
+            title = "Lade finished a download"
+          when 3
+            name = "Download Needs Confirmation"
+            title = "Lade needs confirmation to download"
+          end
+
+          notification = {
+            :name => name,
+            :title => title,
+            :text => filename,
+            :icon => "https://raw.github.com/inket/Lade/master/public/images/Lade75.jpg"
+          }
+
+          growl.notify(notification)
+          puts "Delivered notification to Growl."
+        rescue StandardError => e
+          puts PrettyError.new("Couldn't send a Growl notification.", e)
+        end
+      end
+
+      # Notify Pushalot
+      if (@@pushalot_key && !@@pushalot_key.strip.empty?)
         case action_type
         when 1
-          name = "Download Start"
-          title = "Lade started a download"
+          body = "Started download #{filename}"
         when 2
-          name = "Download Finish"
-          title = "Lade finished a download"
+          body = "Finished download #{filename}"
         when 3
-          name = "Download Needs Confirmation"
-          title = "Lade needs confirmation to download"
+          body = "Needs confirmation for #{filename}"
         end
-        
-        notification = {
-          :name => name,
-          :title => title,
-          :text => filename,
-          :icon => @@path+"public/images/Lade.jpg"
-        }
-        
-        growl.notify(notification)
-      rescue StandardError => e
-        puts PrettyError.new("Couldn't send a Growl notification.", e)
+        url = URI.parse("https://pushalot.com/api/sendmessage")
+        req = Net::HTTP::Post.new(url.path)
+        req.set_form_data({
+          :AuthorizationToken => @@pushalot_key,
+          :Title => "Lade",
+          :Body => body,
+          :Image => "https://raw.github.com/inket/Lade/master/public/images/Lade75.jpg"
+          })
+        res = Net::HTTP.new(url.host, url.port)
+        res.use_ssl = true
+        res.verify_mode = OpenSSL::SSL::VERIFY_PEER
+        response = nil
+        res.start {|http| response = http.request(req) }
+
+        code = response.code.to_i
+        case code
+        when 200
+          puts "Delivered notification to Pushalot."
+        when 400
+          puts "Validation failed while delivering notification to Pushalot: #{response.body}"
+        when 406
+          puts "Reached API limit for Pushalot #{@@pushalot_key}"
+        when 410
+          puts "***** IMPORTANT *****"
+          puts "Pushalot Authorization Token is no longer valid. Please set a new one."
+          puts "**********************"
+
+          FileConfig.setValue("pushalot_key", "")
+        when 500
+          puts "Internal Server Error while delivering notification to Pushalot."
+        when 503
+          puts "Couldn't deliver notification to Pushalot, service is unavailable."
+        end
       end
     end
   end

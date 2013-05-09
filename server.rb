@@ -252,10 +252,9 @@ get '/settings' do
 	@torrent_downloads_dir = settings["torrent_downloads_dir"] || ""
 	@authentication = settings["authentication"] || false
 	@auth_login, @auth_password = ListFile.new(path+"config/password").list
-	@growl_notifications = settings["growl_notifications"] || false
 	@growl_host = settings["growl_host"] || ""
-	@growl_port = settings["growl_port"] || ""
 	@growl_password = settings["growl_password"] || ""
+	@pushalot_key = settings["pushalot_key"] || ""
 	@notify_on_download_start = settings["notify_on_download_start"].nil? ? false : settings["notify_on_download_start"]
 	@notify_on_download_finish = settings["notify_on_download_finish"].nil? ? false : settings["notify_on_download_finish"]
 	@notify_on_download_confirm = settings["notify_on_download_confirm"].nil? ? false : settings["notify_on_download_confirm"]
@@ -282,10 +281,9 @@ post '/settings' do
 			ListFile.overwrite(path+"config/password", [params[:auth_login], params[:auth_password]])
 		end
 		
-		settings["growl_notifications"] = (params[:growl_notifications] == "true" ? true : false)
 		settings["growl_host"] = params[:growl_host]
-		settings["growl_port"] = params[:growl_port]
 		settings["growl_password"] = params[:growl_password]
+		settings["pushalot_key"] = params[:pushalot_key]
 		settings["notify_on_download_start"] = (params[:notify_on_download_start] == "true" ? true : false)
 		settings["notify_on_download_finish"] = (params[:notify_on_download_finish] == "true" ? true : false)
 		settings["notify_on_download_confirm"] = (params[:notify_on_download_confirm] == "true" ? true : false)
@@ -446,7 +444,7 @@ def presentable_link_groups(link_groups, reset_temp_file = false)
 		
 		next if !valid_group
 		
-		group_name = group[:name] || group[:reference]
+		group_name = group[:name] || group[:files].first[:filename] || group[:reference]
 		group_host = group[:host] ? "[#{group[:host]}] " : ""
 		group_size = group[:size] ? " (#{Helper.human_size(group[:size])})" : ""
 		
