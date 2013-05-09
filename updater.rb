@@ -47,8 +47,6 @@ class Updater
 			else
 				puts "Already up to date."
 			end
-
-			restart_server
 		rescue StandardError => e
 			puts e.backtrace.first
 			puts "Error while checking for updates: #{e.to_s}"
@@ -57,6 +55,8 @@ class Updater
 		end
 
 		raise Interrupt.new if interrupted # Silence the huge backtrace that may result if the user interrupts Lade's install
+
+		restart_server
 	end
 	
 	def self.update_broken_modules_list
