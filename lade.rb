@@ -490,7 +490,7 @@ def self.notify(filename, action_type)
     orig_stdout = $stdout
     $stdout = File.new("#{@@log_folder_path}#{Time.now.strftime("%Y%m%d-h%H")}.log", "a")
     $stdout.sync = true
-    puts "@ #{Time.now.to_s}\n\n"
+    puts "@ #{Time.now.to_s}\n"
     yield
   ensure
     puts "\n"
@@ -502,7 +502,7 @@ def self.notify(filename, action_type)
     Lade.load_config
     
     Lade.log do
-      puts "Dejunk started..."
+      puts "Checking downloads folder..."
       filename = (ARGV[0] == "--dejunk" ? ARGV[1] : nil)
       if (filename)
         puts "#{filename} just finished downloading. Processing downloads..."
@@ -562,6 +562,8 @@ def self.notify(filename, action_type)
               puts PrettyError.new(msg, e)
             end
           }
+
+          Lade.notify(torrent_filename, 2) unless to_move.empty?
         }
       end
       
@@ -669,8 +671,6 @@ def self.notify(filename, action_type)
           end
         }
       end
-      
-      puts "Dejunk finished."
     end
   end
   
@@ -740,8 +740,6 @@ def self.notify(filename, action_type)
       Lade.load_hosts
       Lade.run_modules
     end
-    
-    Lade.dejunk
   end
 end
 

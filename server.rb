@@ -65,6 +65,14 @@ end
 
 start_scheduler(freq) if !@@debug
 
+# Dejunk schedule
+@@scheduler.every '1m', :first_at => Time.now, :mutex => 'dejunk' do
+	|the_job|
+
+	load @@path+"lade.rb"
+	Lade.dejunk
+end
+
 # configure Sinatra
 configure do
 	set :port => port
